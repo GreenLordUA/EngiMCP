@@ -206,6 +206,21 @@ describe("project filesystem layer", () => {
     );
   });
 
+  it("applies project-configured deny patterns", async () => {
+    await writeProjectConfig(false, ["docs/blocked/**"]);
+    await mkdir(path.join(tempRoot, "docs/blocked"), { recursive: true });
+    await writeFile(path.join(tempRoot, "docs/blocked/a.txt"), "blocked\n", "utf8");
+
+    const list = await fsList({ root: tempRoot, path: "docs", recursive: true });
+    const glob = await fsGlob({ root: tempRoot, patterns: ["docs/**/*.txt"] });
+    const exists = await fsExists({ root: tempRoot, path: "docs/blocked/a.txt" });
+
+    expect(list.items.map((item) => item.path)).not.toContain("docs/blocked/a.txt");
+    expect(glob.matches).toEqual([]);
+    expect(exists).toMatchObject({ exists: false, allowed: false });
+    await expect(fsRead({ root: tempRoot, path: "docs/blocked/a.txt" })).rejects.toThrow("denied");
+  });
+
   it("rejects traversal, denied paths, symlink escape, and read-only writes", async () => {
     const outside = await mkdtemp(path.join(os.tmpdir(), "engimcp-fs-outside-"));
     await writeFile(path.join(outside, "outside.txt"), "outside\n", "utf8");
@@ -245,10 +260,15 @@ describe("project filesystem layer", () => {
   });
 });
 
-async function writeProjectConfig(readOnly: boolean): Promise<void> {
+async function writeProjectConfig(readOnly: boolean, denyPatterns: string[] = []): Promise<void> {
+  const denyPatternsYaml =
+    denyPatterns.length === 0
+      ? "  deny_patterns: []\n"
+      : `  deny_patterns:\n${denyPatterns.map((pattern) => `    - "${pattern}"`).join("\n")}\n`;
+
   await writeFile(
     path.join(tempRoot, "project.yaml"),
-    `project:\n  id: fs\n  name: Filesystem\n  schema_version: 1.0.0\nmcp:\n  read_only_mode: ${readOnly}\n`,
+    `project:\n  id: fs\n  name: Filesystem\n  schema_version: 1.0.0\nmcp:\n  read_only_mode: ${readOnly}\nsecurity:\n${denyPatternsYaml}`,
     "utf8"
   );
 }

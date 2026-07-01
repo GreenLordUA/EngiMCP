@@ -7,7 +7,7 @@ import { buildDocumentRegistry } from "../documents/documentService.js";
 import { parseFrontmatter } from "../documents/frontmatter.js";
 import { buildGraph } from "../graph/graphBuilder.js";
 import { EngiMcpError } from "../mcp/errors.js";
-import { assertAbsoluteRoot, isDeniedPath, resolveSafePath } from "../project/pathSafety.js";
+import { assertAbsoluteRoot, isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
 import { assertProjectWritable } from "../project/writeGuards.js";
 import { rebuildIndex, type RebuildIndexResult } from "../storage/sqlite.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
@@ -153,7 +153,7 @@ export async function fsTree(input: FsTreeInput): Promise<{
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, entry.name);
       const relativePath = normalizeRelative(root, absolutePath);
-      if (isDeniedPath(relativePath)) {
+      if (await isDeniedPathForRoot(root, relativePath)) {
         continue;
       }
       if (items.length >= treeLimit) {
@@ -395,6 +395,7 @@ export async function fsCopy(input: FsCopyInput): Promise<{
   const targetPath = await resolveSafePath(root, input.target);
   await ensureExists(sourcePath, input.source);
   await ensureTargetPolicy(targetPath, input.target, input.overwrite ?? false);
+  await assertNoDeniedDescendants(root, sourcePath);
   const copied = [
     { from: normalizeRelative(root, sourcePath), to: normalizeRelative(root, targetPath) }
   ];
@@ -407,8 +408,7 @@ export async function fsCopy(input: FsCopyInput): Promise<{
   await cp(sourcePath, targetPath, {
     recursive: true,
     force: input.overwrite ?? false,
-    errorOnExist: !(input.overwrite ?? false),
-    filter: (source) => !isDeniedPath(normalizeRelative(root, source))
+    errorOnExist: !(input.overwrite ?? false)
   });
   const auditId = await writeAuditLog({
     root,
@@ -514,7 +514,7 @@ export async function fsExists(input: FsExistsInput): Promise<{
 }> {
   const root = assertAbsoluteRoot(input.root);
   const relative = normalizeInputPath(input.path);
-  if (isDeniedPath(relative)) {
+  if (await isDeniedPathForRoot(root, relative)) {
     return { exists: false, allowed: false };
   }
 
@@ -538,7 +538,7 @@ export async function fsStat(input: FsStatInput): Promise<{
 }> {
   const root = assertAbsoluteRoot(input.root);
   const relative = normalizeInputPath(input.path);
-  const denied = isDeniedPath(relative);
+  const denied = await isDeniedPathForRoot(root, relative);
 
   if (denied) {
     return { path: relative, is_symlink: false, denied };
@@ -576,7 +576,10 @@ export async function fsGlob(input: FsGlobInput): Promise<{
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const absolutePath = path.join(directory, entry.name);
       const relativePath = normalizeRelative(root, absolutePath);
-      if (isDeniedPath(relativePath) || exclude.some((pattern) => pattern.test(relativePath))) {
+      if (
+        (await isDeniedPathForRoot(root, relativePath)) ||
+        exclude.some((pattern) => pattern.test(relativePath))
+      ) {
         continue;
       }
 
@@ -612,7 +615,7 @@ async function listDirectory(
     }
     const absolutePath = path.join(directory, entry.name);
     const relativePath = normalizeRelative(root, absolutePath);
-    if (isDeniedPath(relativePath)) {
+    if (await isDeniedPathForRoot(root, relativePath)) {
       continue;
     }
 
@@ -769,6 +772,25 @@ async function ensureTargetPolicy(
 ): Promise<void> {
   if (!overwrite && (await pathExists(targetPath))) {
     throw new EngiMcpError("TARGET_EXISTS", `Target already exists: ${inputPath}`);
+  }
+}
+
+async function assertNoDeniedDescendants(root: string, absolutePath: string): Promise<void> {
+  const relativePath = normalizeRelative(root, absolutePath);
+  if (await isDeniedPathForRoot(root, relativePath)) {
+    throw new EngiMcpError(
+      "PATH_DENIED",
+      `Path is denied by project safety rules: ${relativePath}`
+    );
+  }
+
+  const fileStat = await lstat(absolutePath);
+  if (!fileStat.isDirectory()) {
+    return;
+  }
+
+  for (const entry of await readdir(absolutePath, { withFileTypes: true })) {
+    await assertNoDeniedDescendants(root, path.join(absolutePath, entry.name));
   }
 }
 

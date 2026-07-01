@@ -2,7 +2,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { writeAuditLog } from "../audit/auditLog.js";
 import { EngiMcpError } from "../mcp/errors.js";
-import { isDeniedPath, resolveSafePath } from "../project/pathSafety.js";
+import { isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
 import { assertProjectWritable } from "../project/writeGuards.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { parseFrontmatter, serializeDocument } from "./frontmatter.js";
@@ -127,7 +127,7 @@ export async function discoverMarkdownDocuments(root: string): Promise<ManagedDo
 
       const absolutePath = path.join(directory, entry.name);
       const relativePath = path.relative(root, absolutePath);
-      if (isDeniedPath(relativePath)) {
+      if (await isDeniedPathForRoot(root, relativePath)) {
         continue;
       }
       const content = await readFile(absolutePath, "utf8");

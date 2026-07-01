@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { cp, mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { assertAbsoluteRoot, isDeniedPath, resolveSafePath } from "../project/pathSafety.js";
+import { assertAbsoluteRoot, isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
 import { assertProjectWritable } from "../project/writeGuards.js";
 
 const execFileAsync = promisify(execFile);
@@ -78,9 +78,9 @@ export async function createProjectSnapshot(rootInput: string): Promise<ProjectS
     const destination = path.join(snapshotPath, entry.name);
     await cp(source, destination, {
       recursive: true,
-      filter: (sourcePath) => {
+      filter: async (sourcePath) => {
         const relativePath = path.relative(root, sourcePath);
-        return relativePath === "" || !isDeniedPath(relativePath);
+        return relativePath === "" || !(await isDeniedPathForRoot(root, relativePath));
       }
     });
     copiedPaths.push(entry.name);

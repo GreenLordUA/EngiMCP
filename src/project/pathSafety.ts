@@ -1,5 +1,6 @@
 import path from "node:path";
 import { lstat, realpath } from "node:fs/promises";
+import { readProjectConfig } from "../config/projectConfig.js";
 import { EngiMcpError } from "../mcp/errors.js";
 
 export function assertAbsoluteRoot(root: string): string {
@@ -33,7 +34,7 @@ export async function resolveSafePath(
   const target = resolveInsideRoot(resolvedRoot, relativeOrAbsolutePath);
   const relative = path.relative(resolvedRoot, target);
 
-  if (isDeniedPath(relative)) {
+  if (await isDeniedPathForRoot(resolvedRoot, relative)) {
     throw new EngiMcpError("PATH_DENIED", `Path is denied by project safety rules: ${relative}`);
   }
 
@@ -43,22 +44,41 @@ export async function resolveSafePath(
 }
 
 export function isDeniedPath(relativePath: string): boolean {
-  const normalized = relativePath.split(path.sep).join("/");
-  const segments = normalized.split("/");
-  const basename = segments.at(-1) ?? "";
+  return isDeniedByPatterns(relativePath, defaultDenyPatterns);
+}
 
-  return (
-    segments.includes(".git") ||
-    segments.includes(".ssh") ||
-    segments.includes("node_modules") ||
-    normalized === ".engimcp/index.sqlite" ||
-    normalized.startsWith(".engimcp/cache/") ||
-    basename === ".env" ||
-    basename.endsWith(".pem") ||
-    basename.endsWith(".key") ||
-    normalized.toLowerCase().includes("secret") ||
-    normalized.toLowerCase().includes("private")
-  );
+export async function isDeniedPathForRoot(root: string, relativePath: string): Promise<boolean> {
+  const patterns = [...defaultDenyPatterns];
+  try {
+    const config = await readProjectConfig(root);
+    patterns.push(...(config.security?.deny_patterns ?? []));
+  } catch {
+    // Project config may not exist during early initialization; safe defaults still apply.
+  }
+
+  return isDeniedByPatterns(relativePath, patterns);
+}
+
+const defaultDenyPatterns = [
+  "**/.git",
+  "**/.git/**",
+  "**/.env",
+  "**/.ssh",
+  "**/.ssh/**",
+  "**/node_modules",
+  "**/node_modules/**",
+  "**/.engimcp/index.sqlite",
+  "**/.engimcp/cache",
+  "**/.engimcp/cache/**",
+  "**/*secret*",
+  "**/*private*",
+  "**/*.pem",
+  "**/*.key"
+];
+
+function isDeniedByPatterns(relativePath: string, patterns: string[]): boolean {
+  const normalized = relativePath.split(path.sep).join("/");
+  return patterns.some((pattern) => globToRegExp(pattern).test(normalized));
 }
 
 async function assertRealPathInsideRoot(root: string, target: string): Promise<void> {
@@ -94,4 +114,35 @@ async function assertRealPathInsideRoot(root: string, target: string): Promise<v
       parent = path.dirname(parent);
     }
   }
+}
+
+function globToRegExp(pattern: string): RegExp {
+  const normalized = pattern.split(path.sep).join("/");
+  let output = "^";
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index];
+    const next = normalized[index + 1];
+    if (char === "*" && next === "*") {
+      if (normalized[index + 2] === "/") {
+        output += "(?:.*/)?";
+        index += 2;
+      } else {
+        output += ".*";
+        index += 1;
+      }
+    } else if (char === "*") {
+      output += "[^/]*";
+    } else if (char === "?") {
+      output += "[^/]";
+    } else {
+      output += escapeRegExp(char ?? "");
+    }
+  }
+
+  return new RegExp(`${output}$`, "i");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
