@@ -31,43 +31,161 @@ Find requirements that are not verified by tests.
 - Git, for Git status/snapshot/commit workflows.
 - An MCP-compatible client such as Codex, Claude Code, or another local MCP client.
 
-## Installation
+## User Guide
+
+EngiMCP is meant to be used through an MCP client. In normal use, you do not call TypeScript code directly. You start the server, connect it to your agent, and then ask the agent engineering-project questions in plain language.
+
+### 1. Prepare an Engineering Project Folder
+
+Choose or create a local folder for the project:
+
+```bash
+mkdir -p ~/Work/Projects/RC-Car
+cd ~/Work/Projects/RC-Car
+git init
+```
+
+EngiMCP will keep the source of truth in this folder as Markdown files plus `project.yaml`.
+
+### 2. Install and Build EngiMCP
+
+From the EngiMCP repository:
 
 ```bash
 npm install
 npm run build
 ```
 
-For local development:
+### 3. Connect It to an MCP Client
 
-```bash
-npm run dev
+Use the built server command in your MCP client configuration:
+
+```text
+node /absolute/path/to/EngiMCP/dist/index.js --root /absolute/path/to/your/project
 ```
 
-For a built stdio MCP server:
+For a read-only review session:
 
-```bash
-npm run start
+```text
+node /absolute/path/to/EngiMCP/dist/index.js --root /absolute/path/to/your/project --read-only
 ```
 
-The package exposes a binary named `engimcp` after build/install:
+After package installation, the binary form is:
 
-```bash
+```text
 engimcp --root /absolute/path/to/project
 engimcp --root /absolute/path/to/project --read-only
 ```
 
 When `--root` is set, tool calls must use that same project root. When `--read-only` is set, write-like tools are rejected.
 
-## Project Setup
+### 4. Initialize the Project
 
-Initialize a new project through the MCP tool:
+Ask your agent:
+
+```text
+Initialize this folder as an EngiMCP project.
+```
+
+The agent should call:
 
 ```text
 engi_project_init(root="/absolute/path/to/project")
 ```
 
-This creates `project.yaml`, base docs, templates, and `.engimcp` support paths.
+This creates the basic project files:
+
+```text
+project.yaml
+docs/
+templates/
+.engimcp/
+```
+
+### 5. Start Working
+
+Useful first prompts:
+
+```text
+Show project status.
+Create a requirement: the car must run for 30 minutes.
+Create an engineering decision for using four geared motors.
+What breaks if we change the battery?
+Prepare context for changing the project motors.
+Find requirements that are not verified by tests.
+Validate the project and show what needs fixing.
+Show the Git diff summary.
+```
+
+The agent will use EngiMCP tools to read the right documents, build context, analyze links, and apply focused edits.
+
+## Common User Workflows
+
+### Create Requirements
+
+Ask:
+
+```text
+Add a requirement that the radio-controlled car must stop safely when radio control is lost.
+```
+
+EngiMCP creates a managed Markdown requirement with an ID such as `FR-001`, `NFR-001`, `SEC-001`, or `AC-001`.
+
+### Record Engineering Decisions
+
+Ask:
+
+```text
+Create an EDR explaining why we selected a 2S LiPo battery.
+```
+
+EngiMCP creates an Engineering Decision Record such as `EDR-0001` with context, options, decision, consequences, and links.
+
+### Analyze Change Impact
+
+Ask:
+
+```text
+What documents, tests, BOM items, and decisions are affected if we change the battery?
+```
+
+EngiMCP follows frontmatter links and inline links to return direct and transitive impact.
+
+### Prepare Focused Context
+
+Ask:
+
+```text
+Prepare context for changing the drive motors.
+```
+
+EngiMCP builds a compact context pack instead of forcing the agent to read the whole project.
+
+### Edit Documents Safely
+
+Ask:
+
+```text
+Update the Battery Estimate section with the new runtime calculation.
+```
+
+The agent should use section-level document tools, so the edit stays focused and reviewable in Git.
+
+### Work with Ordinary Files
+
+Ask:
+
+```text
+List files under docs.
+Read docs/battery-notes.md.
+Create a folder for test reports.
+Move this draft file into docs/archive.
+Delete this temporary note.
+```
+
+EngiMCP uses the safe `engi_fs_*` layer. Deletes go to `.engimcp/trash/...` by default.
+
+## Project Format
 
 A valid project has:
 
@@ -87,6 +205,12 @@ kind: design_doc
 status: draft
 version: 0.1.0
 ---
+```
+
+You can edit Markdown files manually in VS Code, Obsidian, or another editor. Run validation after manual edits:
+
+```text
+Validate the project.
 ```
 
 ## Quick Start
