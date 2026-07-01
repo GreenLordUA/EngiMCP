@@ -344,9 +344,13 @@ export async function fsMove(input: FsMoveInput): Promise<{
   const moved = [
     { from: normalizeRelative(root, sourcePath), to: normalizeRelative(root, targetPath) }
   ];
+  const linkUpdatePreview = await updateMovedPathLinks(root, moved[0].from, moved[0].to, true);
+  if (input.update_links !== true && linkUpdatePreview.length > 0) {
+    warnings.push(`Manual link updates required in: ${linkUpdatePreview.join(", ")}`);
+  }
 
   if (input.dry_run) {
-    return { ok: true, moved, links_updated: [], warnings };
+    return { ok: true, moved, links_updated: linkUpdatePreview, warnings };
   }
 
   await mkdir(path.dirname(targetPath), { recursive: true });
@@ -354,6 +358,10 @@ export async function fsMove(input: FsMoveInput): Promise<{
     await rm(targetPath, { recursive: true, force: true });
   }
   await rename(sourcePath, targetPath);
+  const linksUpdated =
+    input.update_links === true
+      ? await updateMovedPathLinks(root, moved[0].from, moved[0].to, false)
+      : [];
   const auditId = await writeAuditLog({
     root,
     tool: "engi_fs_move",
@@ -366,7 +374,7 @@ export async function fsMove(input: FsMoveInput): Promise<{
   return {
     ok: true,
     moved,
-    links_updated: [],
+    links_updated: linksUpdated,
     warnings,
     index: await rebuildIndex(root),
     audit_id: auditId
@@ -647,6 +655,36 @@ async function managedDocumentWarnings(root: string, absolutePath: string): Prom
   return incomingLinks.length > 0
     ? [`Managed document has incoming links from: ${incomingLinks.join(", ")}`]
     : [];
+}
+
+async function updateMovedPathLinks(
+  root: string,
+  oldPath: string,
+  newPath: string,
+  dryRun: boolean
+): Promise<string[]> {
+  const registry = await buildDocumentRegistry(root);
+  const changedPaths: string[] = [];
+
+  for (const document of registry.documents) {
+    const content = await readFile(document.absolutePath, "utf8");
+    const nextContent = content
+      .replaceAll(`](${oldPath})`, `](${newPath})`)
+      .replaceAll(`](${oldPath}#`, `](${newPath}#`)
+      .replaceAll(`[[${oldPath}]]`, `[[${newPath}]]`)
+      .replaceAll(`[[${oldPath}|`, `[[${newPath}|`);
+
+    if (nextContent === content) {
+      continue;
+    }
+
+    changedPaths.push(document.path);
+    if (!dryRun) {
+      await atomicWrite(document.absolutePath, nextContent);
+    }
+  }
+
+  return changedPaths.sort();
 }
 
 async function incomingLinksForManagedDocument(

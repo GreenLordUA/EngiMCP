@@ -114,6 +114,55 @@ describe("project filesystem layer", () => {
     expect(existsSync(path.join(tempRoot, "docs/c.txt"))).toBe(false);
   });
 
+  it("updates safe path links when moving files with update_links", async () => {
+    await fsWrite({
+      root: tempRoot,
+      path: "docs/old.md",
+      content: "---\nid: DOC-OLD\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Old\n"
+    });
+    await fsWrite({
+      root: tempRoot,
+      path: "docs/ref.md",
+      content:
+        "---\nid: DOC-REF\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Ref\n\nSee [old](docs/old.md) and [[docs/old.md]].\n"
+    });
+
+    const result = await fsMove({
+      root: tempRoot,
+      source: "docs/old.md",
+      target: "docs/new.md",
+      update_links: true
+    });
+    const refContent = await readFile(path.join(tempRoot, "docs/ref.md"), "utf8");
+
+    expect(result.links_updated).toEqual(["docs/ref.md"]);
+    expect(refContent).toContain("[old](docs/new.md)");
+    expect(refContent).toContain("[[docs/new.md]]");
+  });
+
+  it("returns manual link warnings when moving files without update_links", async () => {
+    await fsWrite({
+      root: tempRoot,
+      path: "docs/old.md",
+      content: "---\nid: DOC-OLD\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Old\n"
+    });
+    await fsWrite({
+      root: tempRoot,
+      path: "docs/ref.md",
+      content:
+        "---\nid: DOC-REF\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Ref\n\nSee [old](docs/old.md).\n"
+    });
+
+    const result = await fsMove({
+      root: tempRoot,
+      source: "docs/old.md",
+      target: "docs/new.md"
+    });
+
+    expect(result.links_updated).toEqual([]);
+    expect(result.warnings).toContain("Manual link updates required in: docs/ref.md");
+  });
+
   it("rejects traversal, denied paths, symlink escape, and read-only writes", async () => {
     const outside = await mkdtemp(path.join(os.tmpdir(), "engimcp-fs-outside-"));
     await writeFile(path.join(outside, "outside.txt"), "outside\n", "utf8");
