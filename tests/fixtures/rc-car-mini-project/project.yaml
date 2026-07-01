@@ -1,0 +1,7 @@
+project:
+  id: rc-car-mini
+  name: Radio-Controlled Car Mini Fixture
+  source_of_truth: markdown
+paths:
+  docs: .
+  templates: templates

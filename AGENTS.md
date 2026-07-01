@@ -43,6 +43,7 @@ Check:
 - whether any broken links appeared;
 - whether the tools contract changed without tests;
 - whether there is a decision-log entry for any meaningful decision;
-- whether tests pass;
+- whether builds and type checks pass after any code change;
+- whether the existing test suite passes after large changes or when explicitly requested;
 - whether the change can be described in one changelog line.
 ```

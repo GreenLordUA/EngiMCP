@@ -86,6 +86,18 @@ Git: shell out to git CLI or use a library
 Client: Codex / Claude Code / any MCP-compatible client
 ```
 
+## Development
+
+```bash
+npm install
+npm run build
+npm run check
+npm run smoke
+npm run dev
+```
+
+The current skeleton exposes a mock `engi_project_status` over MCP stdio.
+
 ## License
 
 MIT License.

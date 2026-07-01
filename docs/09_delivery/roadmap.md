@@ -9,6 +9,8 @@ version: 0.1.0
 
 ## Milestone 0 - Repository Setup
 
+Status: complete.
+
 Goal: create the project skeleton.
 
 Tasks:

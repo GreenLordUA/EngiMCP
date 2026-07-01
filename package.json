@@ -1,0 +1,46 @@
+{
+  "name": "engimcp",
+  "version": "0.1.0",
+  "description": "MCP server for managing engineering projects in Markdown/Git.",
+  "type": "module",
+  "bin": {
+    "engimcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "npm run build && npm run lint && npm run format:check && npm test",
+    "dev": "tsx src/index.ts",
+    "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \"tests/**/*.ts\" \".github/**/*.yml\" \"*.json\" \"*.js\" \"*.yaml\" \"*.yml\"",
+    "format:check": "prettier --check --no-error-on-unmatched-pattern \"src/**/*.ts\" \"tests/**/*.ts\" \".github/**/*.yml\" \"*.json\" \"*.js\" \"*.yaml\" \"*.yml\"",
+    "lint": "eslint .",
+    "smoke": "npm run build && node dist/dev/smokeProjectStatus.js",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.0.10",
+    "eslint": "^10.6.0",
+    "prettier": "^3.9.4",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.62.1",
+    "vitest": "^4.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
