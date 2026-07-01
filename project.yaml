@@ -1,0 +1,60 @@
+project:
+  id: engimcp
+  name: EngiMCP
+  description: MCP server for managing engineering projects in Markdown/Git.
+  source_of_truth: markdown
+  index_storage: sqlite
+  default_language: en
+
+paths:
+  docs: docs
+  templates: templates
+  examples: examples
+  tests: tests
+  index: .engimcp/index.sqlite
+  cache: .engimcp/cache
+  audit_log: .engimcp/audit.log
+
+entity_types:
+  - requirement
+  - decision
+  - document
+  - calculation
+  - test_plan
+  - test_report
+  - bom_item
+  - task
+  - risk
+  - glossary_term
+
+relations:
+  allowed:
+    - depends_on
+    - impacts
+    - satisfies
+    - verified_by
+    - verifies
+    - decided_by
+    - updates
+    - supersedes
+    - relates_to
+    - blocks
+    - derives_from
+
+mcp:
+  transport_mvp: stdio
+  tools_prefix: engi
+  read_only_mode: false
+  max_context_pack_tokens: 12000
+
+security:
+  allow_paths:
+    - .
+  deny_patterns:
+    - "**/.env"
+    - "**/.ssh/**"
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/.engimcp/index.sqlite"
+  follow_symlinks: false
+  require_git_clean_before_bulk_write: true

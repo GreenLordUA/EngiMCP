@@ -1,0 +1,10 @@
+{
+  "tool": "engi_impact_analyze",
+  "input": {
+    "root": "/path/to/project",
+    "changed_ids": ["DOC-RC-CAR-BATTERY"],
+    "change_description": "increase battery capacity to 5000 mAh",
+    "depth": 3
+  },
+  "expected_contains": ["DOC-RC-CAR-BOM", "DOC-RC-CAR-DRIVE", "REQ-RC-CAR-V0"]
+}
