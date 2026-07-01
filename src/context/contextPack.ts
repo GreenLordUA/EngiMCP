@@ -21,7 +21,7 @@ export interface ContextPackItem {
   path: string;
   kind?: string;
   reason: string;
-  content_mode: "full";
+  content_mode: "full" | "section";
   content: string;
 }
 
@@ -96,7 +96,10 @@ export async function buildContextPack(input: ContextPackInput): Promise<Context
       continue;
     }
 
-    const content = await readFile(document.absolutePath, "utf8");
+    const fullContent = await readFile(document.absolutePath, "utf8");
+    const sectionContent =
+      input.include_sections === false ? undefined : selectRelevantSection(fullContent, taskTerms);
+    const content = sectionContent ?? fullContent;
     const tokens = estimateTokens(content);
     if (estimatedTokens + tokens > maxTokens) {
       excluded.push({ id: document.id, path: document.path, reason: "token budget exceeded" });
@@ -109,7 +112,7 @@ export async function buildContextPack(input: ContextPackInput): Promise<Context
       path: document.path,
       kind: document.kind,
       reason,
-      content_mode: "full",
+      content_mode: sectionContent ? "section" : "full",
       content
     });
   }
@@ -137,4 +140,41 @@ function normalizedTerms(task: string): string[] {
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((term) => term.length >= 4);
+}
+
+function selectRelevantSection(markdown: string, terms: string[]): string | undefined {
+  if (terms.length === 0) {
+    return undefined;
+  }
+
+  const lines = markdown.split(/\r?\n/);
+  const sections: Array<{ start: number; end: number }> = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const heading = lines[index]?.match(/^(#{1,6})\s+/);
+    if (!heading) {
+      continue;
+    }
+
+    const level = heading[1].length;
+    let end = lines.length;
+    for (let next = index + 1; next < lines.length; next += 1) {
+      const nextHeading = lines[next]?.match(/^(#{1,6})\s+/);
+      if (nextHeading && nextHeading[1].length <= level) {
+        end = next;
+        break;
+      }
+    }
+    sections.push({ start: index, end });
+  }
+
+  for (const section of sections) {
+    const content = lines.slice(section.start, section.end).join("\n").trim();
+    const lower = content.toLowerCase();
+    if (terms.some((term) => lower.includes(term))) {
+      return content;
+    }
+  }
+
+  return undefined;
 }

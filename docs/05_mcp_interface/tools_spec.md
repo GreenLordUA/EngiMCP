@@ -223,7 +223,49 @@ Input:
 }
 ```
 
-### 8. `engi_search`
+### 8. `engi_doc_add_relationship`
+
+Add a relationship to a document frontmatter field without replacing existing values.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project",
+  "id": "DOC-MOTORS",
+  "relation_type": "depends_on",
+  "target_id": "FR-001",
+  "dry_run": false
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "changed": true,
+  "path": "docs/mechanics/motors.md",
+  "id": "DOC-MOTORS",
+  "diff_summary": "content changed",
+  "audit_id": "AUD-..."
+}
+```
+
+Errors:
+
+- source document ID is not found;
+- relation type is not supported;
+- project is read-only;
+- write target is outside allowed scope.
+
+Acceptance criteria:
+
+- existing relationships are preserved;
+- duplicate target IDs are not added;
+- the write is atomic and audited.
+
+### 9. `engi_search`
 
 Search the project.
 
@@ -251,7 +293,7 @@ Output:
 }
 ```
 
-### 9. `engi_graph_query`
+### 10. `engi_graph_query`
 
 Return relationships for a document/entity.
 
@@ -276,7 +318,7 @@ Output:
 }
 ```
 
-### 10. `engi_impact_analyze`
+### 11. `engi_impact_analyze`
 
 Assess the consequences of a change.
 
@@ -308,7 +350,7 @@ Output:
 }
 ```
 
-### 11. `engi_context_pack`
+### 12. `engi_context_pack`
 
 Build compact task-specific context.
 
@@ -341,7 +383,7 @@ Output:
 }
 ```
 
-### 12. `engi_requirement_create`
+### 13. `engi_requirement_create`
 
 Create a requirement.
 
@@ -368,7 +410,7 @@ Output:
 }
 ```
 
-### 13. `engi_decision_create`
+### 14. `engi_decision_create`
 
 Create an EDR.
 
@@ -388,7 +430,7 @@ Input:
 }
 ```
 
-### 14. `engi_task_create`
+### 15. `engi_task_create`
 
 Create a task.
 
@@ -404,7 +446,7 @@ Input:
 }
 ```
 
-### 15. `engi_validate_project`
+### 16. `engi_validate_project`
 
 Validation.
 
@@ -430,7 +472,7 @@ Output:
 }
 ```
 
-### 16. `engi_git_status`
+### 17. `engi_git_status`
 
 Input:
 
@@ -451,6 +493,189 @@ Output:
   ]
 }
 ```
+
+### 18. `engi_project_snapshot`
+
+Create a local project snapshot under `.engimcp/snapshots/` before risky changes.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project"
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "path": ".engimcp/snapshots/20260701143000",
+  "copied_paths": ["docs", "project.yaml", "templates"]
+}
+```
+
+Errors:
+
+- root is not absolute;
+- project is read-only;
+- snapshot path is outside allowed scope.
+
+Acceptance criteria:
+
+- `.git`, `.engimcp`, `node_modules`, `dist`, and denied paths are skipped;
+- the snapshot is derived backup data and can be deleted safely.
+
+### 19. `engi_git_commit`
+
+Create a Git commit for current project changes.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project",
+  "message": "feat: add motor requirements"
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "commit": "abcdef...",
+  "message": "feat: add motor requirements",
+  "files": [{"path": "docs/a.md", "status": "M"}]
+}
+```
+
+Errors:
+
+- root is not a Git repository;
+- there are no changes to commit;
+- Git cannot create the commit.
+
+Acceptance criteria:
+
+- only explicit calls create commits;
+- committed file list reflects the pre-commit dirty state.
+
+### 20. `engi_rebuild_index`
+
+Rebuild the derived SQLite index.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project"
+}
+```
+
+Output:
+
+```json
+{
+  "ok": true,
+  "path": ".engimcp/index.sqlite",
+  "documents": 42,
+  "relations": 73,
+  "validation_issues": 2
+}
+```
+
+Errors:
+
+- root is not absolute;
+- project documents cannot be read;
+- SQLite index cannot be written.
+
+Acceptance criteria:
+
+- deleting the index does not delete source data;
+- rebuild uses current Markdown/frontmatter state.
+
+### 21. `engi_test_report_create`
+
+Create a test report linked to verified requirements.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project",
+  "id": "TEST-REPORT-001",
+  "title": "Runtime bench test",
+  "verifies": ["FR-001"],
+  "result": "pass",
+  "dry_run": false
+}
+```
+
+Output:
+
+```json
+{
+  "id": "TEST-REPORT-001",
+  "path": "docs/tests/TEST-REPORT-001-runtime-bench-test.md",
+  "audit_id": "AUD-..."
+}
+```
+
+Errors:
+
+- project is read-only;
+- output path is denied;
+- file cannot be written.
+
+Acceptance criteria:
+
+- `verifies` links participate in graph and validation;
+- the write is atomic and audited.
+
+### 22. `engi_bom_item_create`
+
+Create a BOM item document.
+
+Input:
+
+```json
+{
+  "root": "/absolute/path/to/project",
+  "id": "BOM-0001",
+  "part_name": "48V motor controller",
+  "quantity": 4,
+  "status": "candidate",
+  "source": "Vendor",
+  "unit_cost": 0,
+  "currency": "USD",
+  "related": ["FR-001"],
+  "dry_run": false
+}
+```
+
+Output:
+
+```json
+{
+  "id": "BOM-0001",
+  "path": "docs/bom/BOM-0001-48v-motor-controller.md",
+  "audit_id": "AUD-..."
+}
+```
+
+Errors:
+
+- project is read-only;
+- output path is denied;
+- file cannot be written.
+
+Acceptance criteria:
+
+- BOM item has ID, name, quantity, status, source, price, currency, and relationships;
+- related entities participate in graph and impact analysis.
 
 ## MVP Resources
 

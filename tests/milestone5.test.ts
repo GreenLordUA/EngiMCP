@@ -20,7 +20,9 @@ describe("milestone 5 context pack", () => {
     expect(pack.items.find((item) => item.id === "DOC-RC-CAR-BATTERY")?.reason).toBe(
       "seed document"
     );
-    expect(pack.warnings).toEqual([]);
+    expect(pack.warnings).toEqual(
+      expect.arrayContaining(["REQUIREMENT_WITHOUT_TESTS: Requirement REQ-RC-CAR-V0 has no tests"])
+    );
   });
 
   it("respects token budget and reports excluded documents", async () => {

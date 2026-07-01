@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { parseFrontmatter } from "../documents/frontmatter.js";
 import { buildDocumentRegistry } from "../documents/documentService.js";
 import { assertAbsoluteRoot } from "../project/pathSafety.js";
 import { extractRelations, type RelationType } from "./relations.js";
@@ -40,20 +42,36 @@ export async function buildGraph(rootInput: string): Promise<ProjectGraph> {
       kind: document.kind,
       status: document.status
     }));
-  const edges = registry.documents.flatMap((document) => {
-    if (!document.id) {
-      return [];
-    }
+  const edges = (
+    await Promise.all(
+      registry.documents.map(async (document) => {
+        if (!document.id) {
+          return [];
+        }
 
-    return extractRelations(document.frontmatter).map((relation) => ({
-      source_id: document.id as string,
-      relation_type: relation.relation_type,
-      target_id: relation.target_id,
-      source_path: document.path
-    }));
-  });
+        const content = await readFile(document.absolutePath, "utf8");
+        const parsed = parseFrontmatter(content);
+        const frontmatterEdges = extractRelations(document.frontmatter).map((relation) => ({
+          source_id: document.id as string,
+          relation_type: relation.relation_type,
+          target_id: relation.target_id,
+          source_path: document.path
+        }));
+        const inlineEdges = extractInlineLinkTargets(parsed.body, registry.byId).map(
+          (targetId) => ({
+            source_id: document.id as string,
+            relation_type: "relates_to" as const,
+            target_id: targetId,
+            source_path: document.path
+          })
+        );
 
-  return { nodes, edges };
+        return [...frontmatterEdges, ...inlineEdges];
+      })
+    )
+  ).flat();
+
+  return { nodes, edges: dedupeEdges(edges) };
 }
 
 export async function queryGraph(input: GraphQueryInput): Promise<ProjectGraph> {
@@ -137,4 +155,24 @@ function dedupeEdges(edges: GraphEdge[]): GraphEdge[] {
     seen.add(key);
     return true;
   });
+}
+
+function extractInlineLinkTargets(markdown: string, byId: Map<string, unknown>): string[] {
+  const targets = new Set<string>();
+
+  for (const match of markdown.matchAll(/\[\[([A-Za-z0-9_.:-]+)(?:\|[^\]]+)?\]\]/g)) {
+    const target = match[1];
+    if (target && byId.has(target)) {
+      targets.add(target);
+    }
+  }
+
+  for (const match of markdown.matchAll(/\[[^\]]+\]\(([^)#\s]+)(?:#[^)]+)?\)/g)) {
+    const target = match[1];
+    if (target && byId.has(target)) {
+      targets.add(target);
+    }
+  }
+
+  return [...targets];
 }

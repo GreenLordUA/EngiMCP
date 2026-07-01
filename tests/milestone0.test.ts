@@ -73,7 +73,7 @@ describe("milestone 0 server skeleton", () => {
       tasks_open: 0,
       validation: {
         errors: 0,
-        warnings: 1
+        warnings: 2
       }
     });
   });

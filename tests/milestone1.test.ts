@@ -22,7 +22,7 @@ describe("milestone 1 markdown project core", () => {
       tasks_open: 0,
       validation: {
         errors: 0,
-        warnings: 1
+        warnings: 2
       }
     });
   });

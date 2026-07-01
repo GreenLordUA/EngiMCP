@@ -1,7 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { createBomItem } from "../bom/bomService.js";
 import { buildContextPack } from "../context/contextPack.js";
+import { createDecision } from "../decisions/decisionService.js";
 import {
+  addDocumentRelationship,
   createDocument,
   patchDocumentFrontmatter,
   patchDocumentSection,
@@ -10,14 +13,15 @@ import {
 import { queryGraph } from "../graph/graphBuilder.js";
 import { analyzeImpact } from "../graph/impact.js";
 import { relationTypes } from "../graph/relations.js";
-import { getGitStatus } from "../git/gitAdapter.js";
-import { getProjectMap, getProjectStatus } from "../project/projectService.js";
+import { createGitCommit, createProjectSnapshot, getGitStatus } from "../git/gitAdapter.js";
 import { initProject } from "../project/projectInit.js";
-import { createDecision } from "../decisions/decisionService.js";
+import { getProjectMap, getProjectStatus } from "../project/projectService.js";
 import { createRequirement } from "../requirements/requirementService.js";
 import { searchProject } from "../search/searchService.js";
+import { rebuildIndex } from "../storage/sqlite.js";
 import { createTask } from "../tasks/taskService.js";
 import { validateProject } from "../validation/validator.js";
+import { createTestReport } from "../verification/testReportService.js";
 
 const projectStatusInput = {
   root: z.string().min(1).describe("Absolute path to the project root."),
@@ -70,6 +74,14 @@ const docPatchSectionInput = {
   heading_path: z.array(z.string().min(1)).min(1),
   operation: z.enum(["replace", "append", "prepend", "insert_after"]).default("replace"),
   content: z.string(),
+  dry_run: z.boolean().default(false)
+};
+
+const docAddRelationshipInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  relation_type: z.enum(relationTypes),
+  target_id: z.string().min(1),
   dry_run: z.boolean().default(false)
 };
 
@@ -142,6 +154,15 @@ const gitStatusInput = {
   root: z.string().min(1).describe("Absolute path to the project root.")
 };
 
+const projectSnapshotInput = {
+  root: z.string().min(1).describe("Absolute path to the project root.")
+};
+
+const gitCommitInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  message: z.string().min(1)
+};
+
 const searchInput = {
   root: z.string().min(1).describe("Absolute path to the project root."),
   query: z.string().min(1),
@@ -154,8 +175,37 @@ const searchInput = {
   limit: z.number().int().positive().default(20)
 };
 
+const rebuildIndexInput = {
+  root: z.string().min(1).describe("Absolute path to the project root.")
+};
+
+const testReportCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  verifies: z.array(z.string().min(1)).min(1),
+  result: z.enum(["pass", "fail", "blocked"]),
+  dry_run: z.boolean().default(false)
+};
+
+const bomItemCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  part_name: z.string().min(1),
+  quantity: z.number().positive(),
+  status: z.enum(["candidate", "approved", "rejected"]).default("candidate"),
+  source: z.string().optional(),
+  unit_cost: z.number().nonnegative().optional(),
+  currency: z.string().optional(),
+  related: z.array(z.string().min(1)).optional(),
+  dry_run: z.boolean().default(false)
+};
+
 function textResult(value: unknown) {
-  return {
+  const result: {
+    structuredContent?: Record<string, unknown>;
+    content: Array<{ type: "text"; text: string }>;
+  } = {
     content: [
       {
         type: "text" as const,
@@ -163,6 +213,12 @@ function textResult(value: unknown) {
       }
     ]
   };
+
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    result.structuredContent = value as Record<string, unknown>;
+  }
+
+  return result;
 }
 
 export function registerTools(server: McpServer): void {
@@ -228,6 +284,15 @@ export function registerTools(server: McpServer): void {
     docPatchSectionInput,
     async (input) => {
       return textResult(await patchDocumentSection(input));
+    }
+  );
+
+  server.tool(
+    "engi_doc_add_relationship",
+    "Add a frontmatter relationship to a managed document.",
+    docAddRelationshipInput,
+    async (input) => {
+      return textResult(await addDocumentRelationship(input));
     }
   );
 
@@ -303,7 +368,52 @@ export function registerTools(server: McpServer): void {
     }
   );
 
+  server.tool(
+    "engi_project_snapshot",
+    "Create a local snapshot of project files before risky changes.",
+    projectSnapshotInput,
+    async (input) => {
+      return textResult(await createProjectSnapshot(input.root));
+    }
+  );
+
+  server.tool(
+    "engi_git_commit",
+    "Create a Git commit for current project changes.",
+    gitCommitInput,
+    async (input) => {
+      return textResult(await createGitCommit(input.root, input.message));
+    }
+  );
+
   server.tool("engi_search", "Search managed Markdown documents.", searchInput, async (input) => {
     return textResult(await searchProject(input));
   });
+
+  server.tool(
+    "engi_rebuild_index",
+    "Rebuild the derived SQLite project index.",
+    rebuildIndexInput,
+    async (input) => {
+      return textResult(await rebuildIndex(input.root));
+    }
+  );
+
+  server.tool(
+    "engi_test_report_create",
+    "Create a test report linked to verified requirements.",
+    testReportCreateInput,
+    async (input) => {
+      return textResult(await createTestReport(input));
+    }
+  );
+
+  server.tool(
+    "engi_bom_item_create",
+    "Create a BOM item document linked to related entities.",
+    bomItemCreateInput,
+    async (input) => {
+      return textResult(await createBomItem(input));
+    }
+  );
 }

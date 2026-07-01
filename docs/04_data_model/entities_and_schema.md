@@ -206,7 +206,7 @@ part_name: 48V motor controller
 quantity: 4
 unit_cost: 0
 currency: UAH
-related:
+relates_to:
   - FR-POWER-001
   - DOC-MOTORS
 ```

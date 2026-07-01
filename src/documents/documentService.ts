@@ -84,6 +84,14 @@ export interface DocumentSectionPatchInput {
   dry_run?: boolean;
 }
 
+export interface AddRelationshipInput {
+  root: string;
+  id: string;
+  relation_type: string;
+  target_id: string;
+  dry_run?: boolean;
+}
+
 const ignoredDirectories = new Set([".git", ".engimcp", "node_modules", "dist", "templates"]);
 const relationFields = [
   "depends_on",
@@ -367,6 +375,30 @@ export async function patchDocumentSection(
     diff_summary: diffSummary,
     audit_id: auditId
   };
+}
+
+export async function addDocumentRelationship(
+  input: AddRelationshipInput
+): Promise<DocumentWriteResult> {
+  const root = path.resolve(input.root);
+  const registry = await buildDocumentRegistry(root);
+  const document = resolveDocument(registry, { id: input.id });
+  const current = document.frontmatter[input.relation_type];
+  const existing = Array.isArray(current)
+    ? current.filter((item): item is string => typeof item === "string")
+    : typeof current === "string"
+      ? [current]
+      : [];
+  const next = existing.includes(input.target_id) ? existing : [...existing, input.target_id];
+
+  return patchDocumentFrontmatter({
+    root,
+    id: input.id,
+    patch: {
+      [input.relation_type]: next
+    },
+    dry_run: input.dry_run
+  });
 }
 
 export function extractFrontmatterLinks(frontmatter: Record<string, unknown>): string[] {

@@ -23,6 +23,19 @@ export interface ValidateProjectResult {
 }
 
 const requiredFrontmatterFields = ["id", "kind", "status", "version"];
+const statusesByKind: Record<string, Set<string>> = {
+  requirement: new Set([
+    "draft",
+    "proposed",
+    "accepted",
+    "implemented",
+    "verified",
+    "rejected",
+    "superseded"
+  ]),
+  decision: new Set(["proposed", "accepted", "deprecated", "superseded"]),
+  task: new Set(["todo", "in_progress", "blocked", "done", "cancelled"])
+};
 
 export async function validateProject(input: ValidateProjectInput): Promise<ValidateProjectResult> {
   const root = assertAbsoluteRoot(input.root);
@@ -30,6 +43,17 @@ export async function validateProject(input: ValidateProjectInput): Promise<Vali
   const errors: ValidationIssue[] = [];
   const warnings: ValidationIssue[] = [];
   const ids = new Map<string, string[]>();
+  const requirementsVerifiedByReports = new Set<string>();
+
+  for (const document of registry.documents) {
+    if (document.kind !== "test_report" && document.kind !== "test_plan") {
+      continue;
+    }
+
+    for (const requirementId of extractStringList(document.frontmatter.verifies)) {
+      requirementsVerifiedByReports.add(requirementId);
+    }
+  }
 
   for (const document of registry.documents) {
     if (document.id) {
@@ -55,6 +79,41 @@ export async function validateProject(input: ValidateProjectInput): Promise<Vali
           entity_id: document.id
         });
       }
+    }
+
+    const validStatuses = document.kind ? statusesByKind[document.kind] : undefined;
+    if (validStatuses && document.status && !validStatuses.has(document.status)) {
+      errors.push({
+        code: "INVALID_STATUS",
+        message: `Invalid status for ${document.kind}: ${document.status}`,
+        path: document.path,
+        entity_id: document.id
+      });
+    }
+
+    if (
+      isRequirementKind(document.kind) &&
+      ["accepted", "implemented"].includes(document.status ?? "") &&
+      !hasRequirementVerification(document.id, document.frontmatter, requirementsVerifiedByReports)
+    ) {
+      warnings.push({
+        code: "REQUIREMENT_UNVERIFIED",
+        message: `Requirement ${document.id ?? document.path} has no verification links`,
+        path: document.path,
+        entity_id: document.id
+      });
+    }
+
+    if (
+      isRequirementKind(document.kind) &&
+      !hasRequirementVerification(document.id, document.frontmatter, requirementsVerifiedByReports)
+    ) {
+      warnings.push({
+        code: "REQUIREMENT_WITHOUT_TESTS",
+        message: `Requirement ${document.id ?? document.path} has no tests`,
+        path: document.path,
+        entity_id: document.id
+      });
     }
 
     for (const targetId of extractFrontmatterLinks(document.frontmatter)) {
@@ -93,4 +152,26 @@ export async function validateProject(input: ValidateProjectInput): Promise<Vali
     errors,
     warnings
   };
+}
+
+function extractStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  return typeof value === "string" ? [value] : [];
+}
+
+function isRequirementKind(kind: string | undefined): boolean {
+  return kind === "requirement" || kind === "requirements";
+}
+
+function hasRequirementVerification(
+  requirementId: string | undefined,
+  frontmatter: Record<string, unknown>,
+  verifiedByReports: Set<string>
+): boolean {
+  return (
+    extractStringList(frontmatter.verified_by).length > 0 ||
+    (requirementId !== undefined && verifiedByReports.has(requirementId))
+  );
 }

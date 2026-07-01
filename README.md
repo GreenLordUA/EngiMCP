@@ -96,15 +96,14 @@ npm run smoke
 npm run dev
 ```
 
-The current server exposes read-only Milestone 1 tools over MCP stdio:
-`engi_project_status`, `engi_project_map`, `engi_doc_read`, and `engi_validate_project`.
-Milestone 2 adds safe write tools: `engi_doc_create`, `engi_frontmatter_patch`, and
-`engi_doc_patch_section`.
-Milestone 3 adds graph and impact tools: `engi_graph_query` and `engi_impact_analyze`.
-Milestone 4 adds entity creation tools: `engi_requirement_create`, `engi_decision_create`, and
-`engi_task_create`.
-Milestone 5 adds `engi_context_pack` for compact task-specific context.
-Milestone 6 adds `engi_git_status` for Git dirty state, changed files, and diff summary.
+The current server exposes these MCP stdio tools:
+`engi_project_init`, `engi_project_status`, `engi_project_map`, `engi_doc_read`,
+`engi_doc_create`, `engi_frontmatter_patch`, `engi_doc_patch_section`,
+`engi_doc_add_relationship`, `engi_search`, `engi_graph_query`, `engi_impact_analyze`,
+`engi_requirement_create`, `engi_decision_create`, `engi_task_create`,
+`engi_context_pack`, `engi_validate_project`, `engi_git_status`,
+`engi_project_snapshot`, `engi_git_commit`, `engi_rebuild_index`,
+`engi_test_report_create`, and `engi_bom_item_create`.
 
 ## License
 
