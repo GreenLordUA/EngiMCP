@@ -9,6 +9,7 @@ import { buildGraph } from "../graph/graphBuilder.js";
 import { EngiMcpError } from "../mcp/errors.js";
 import { assertAbsoluteRoot, isDeniedPath, resolveSafePath } from "../project/pathSafety.js";
 import { assertProjectWritable } from "../project/writeGuards.js";
+import { rebuildIndex, type RebuildIndexResult } from "../storage/sqlite.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 
 export type FsEntryType = "file" | "dir" | "symlink" | "other";
@@ -233,6 +234,7 @@ export async function fsWrite(input: FsWriteInput): Promise<{
   created: boolean;
   changed: boolean;
   diff_summary: string;
+  index?: RebuildIndexResult;
   audit_id?: string;
   content?: string;
 }> {
@@ -285,6 +287,7 @@ export async function fsWrite(input: FsWriteInput): Promise<{
     created: !exists,
     changed: before !== nextContent,
     diff_summary: diffSummary,
+    index: await rebuildIndex(root),
     audit_id: auditId
   };
 }
@@ -292,6 +295,7 @@ export async function fsWrite(input: FsWriteInput): Promise<{
 export async function fsMkdir(input: FsMkdirInput): Promise<{
   ok: boolean;
   created_paths: string[];
+  index?: RebuildIndexResult;
   audit_id?: string;
 }> {
   const root = assertAbsoluteRoot(input.root);
@@ -314,7 +318,12 @@ export async function fsMkdir(input: FsMkdirInput): Promise<{
     diff_summary: exists ? "directory already exists" : "directory created"
   });
 
-  return { ok: true, created_paths: exists ? [] : [relativePath], audit_id: auditId };
+  return {
+    ok: true,
+    created_paths: exists ? [] : [relativePath],
+    index: await rebuildIndex(root),
+    audit_id: auditId
+  };
 }
 
 export async function fsMove(input: FsMoveInput): Promise<{
@@ -322,6 +331,7 @@ export async function fsMove(input: FsMoveInput): Promise<{
   moved: Array<{ from: string; to: string }>;
   links_updated: string[];
   warnings: string[];
+  index?: RebuildIndexResult;
   audit_id?: string;
 }> {
   const root = assertAbsoluteRoot(input.root);
@@ -353,12 +363,20 @@ export async function fsMove(input: FsMoveInput): Promise<{
     diff_summary: "moved 1 path"
   });
 
-  return { ok: true, moved, links_updated: [], warnings, audit_id: auditId };
+  return {
+    ok: true,
+    moved,
+    links_updated: [],
+    warnings,
+    index: await rebuildIndex(root),
+    audit_id: auditId
+  };
 }
 
 export async function fsCopy(input: FsCopyInput): Promise<{
   ok: boolean;
   copied: Array<{ from: string; to: string }>;
+  index?: RebuildIndexResult;
   audit_id?: string;
 }> {
   const root = assertAbsoluteRoot(input.root);
@@ -391,13 +409,14 @@ export async function fsCopy(input: FsCopyInput): Promise<{
     diff_summary: "copied 1 path"
   });
 
-  return { ok: true, copied, audit_id: auditId };
+  return { ok: true, copied, index: await rebuildIndex(root), audit_id: auditId };
 }
 
 export async function fsDelete(input: FsDeleteInput): Promise<{
   ok: boolean;
   deleted: Array<{ path: string; mode: "trash"; trash_path: string }>;
   broken_links_created: string[];
+  index?: RebuildIndexResult;
   audit_id?: string;
 }> {
   const root = assertAbsoluteRoot(input.root);
@@ -456,7 +475,13 @@ export async function fsDelete(input: FsDeleteInput): Promise<{
     diff_summary: `moved to ${normalizeRelative(root, absoluteTrashPath)}`
   });
 
-  return { ok: true, deleted, broken_links_created: brokenLinks, audit_id: auditId };
+  return {
+    ok: true,
+    deleted,
+    broken_links_created: brokenLinks,
+    index: await rebuildIndex(root),
+    audit_id: auditId
+  };
 }
 
 export async function fsExists(input: FsExistsInput): Promise<{

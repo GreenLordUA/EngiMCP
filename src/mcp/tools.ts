@@ -343,6 +343,7 @@ const genericOutputSchema = {
   headings: z.unknown().optional(),
   id: z.string().optional(),
   impact: z.unknown().optional(),
+  index: z.unknown().optional(),
   is_git_repo: z.boolean().optional(),
   items: z.unknown().optional(),
   links: z.unknown().optional(),

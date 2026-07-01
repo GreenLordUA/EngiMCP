@@ -85,6 +85,19 @@ describe("project filesystem layer", () => {
     expect(await readFile(path.join(tempRoot, "notes.txt"), "utf8")).toBe("before\n");
   });
 
+  it("rebuilds the derived index after filesystem writes and deletes", async () => {
+    const written = await fsWrite({
+      root: tempRoot,
+      path: "docs/indexed.md",
+      content:
+        "---\nid: DOC-INDEXED\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Indexed\n"
+    });
+    const deleted = await fsDelete({ root: tempRoot, path: "docs/indexed.md" });
+
+    expect(written.index?.documents).toBe(1);
+    expect(deleted.index?.documents).toBe(0);
+  });
+
   it("moves, copies, and deletes through project trash", async () => {
     await fsWrite({ root: tempRoot, path: "docs/a.txt", content: "a\n" });
 
