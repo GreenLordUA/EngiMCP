@@ -432,6 +432,7 @@ export async function fsDelete(input: FsDeleteInput): Promise<{
   ok: boolean;
   deleted: Array<{ path: string; mode: "trash"; trash_path: string }>;
   broken_links_created: string[];
+  warnings: string[];
   index?: RebuildIndexResult;
   audit_id?: string;
 }> {
@@ -452,7 +453,12 @@ export async function fsDelete(input: FsDeleteInput): Promise<{
   }
 
   const relativePath = normalizeRelative(root, absolutePath);
-  const brokenLinks = await incomingLinksForManagedDocument(root, absolutePath);
+  const linkImpact = await linkImpactForManagedDocument(root, absolutePath);
+  const brokenLinks = linkImpact.incoming;
+  const warnings =
+    linkImpact.outgoing.length > 0
+      ? [`Deleted managed document had outgoing links to: ${linkImpact.outgoing.join(", ")}`]
+      : [];
   if (brokenLinks.length > 0 && !(input.force ?? false)) {
     throw new EngiMcpError(
       "BROKEN_LINKS_WOULD_BE_CREATED",
@@ -472,7 +478,7 @@ export async function fsDelete(input: FsDeleteInput): Promise<{
   ];
 
   if (input.dry_run) {
-    return { ok: true, deleted, broken_links_created: brokenLinks };
+    return { ok: true, deleted, broken_links_created: brokenLinks, warnings };
   }
 
   await mkdir(path.dirname(absoluteTrashPath), { recursive: true });
@@ -495,6 +501,7 @@ export async function fsDelete(input: FsDeleteInput): Promise<{
     ok: true,
     deleted,
     broken_links_created: brokenLinks,
+    warnings,
     index: await rebuildIndex(root),
     audit_id: auditId
   };
@@ -659,10 +666,15 @@ function validateManagedMarkdown(content: string, filePath: string): void {
 }
 
 async function managedDocumentWarnings(root: string, absolutePath: string): Promise<string[]> {
-  const incomingLinks = await incomingLinksForManagedDocument(root, absolutePath);
-  return incomingLinks.length > 0
-    ? [`Managed document has incoming links from: ${incomingLinks.join(", ")}`]
-    : [];
+  const linkImpact = await linkImpactForManagedDocument(root, absolutePath);
+  const warnings: string[] = [];
+  if (linkImpact.incoming.length > 0) {
+    warnings.push(`Managed document has incoming links from: ${linkImpact.incoming.join(", ")}`);
+  }
+  if (linkImpact.outgoing.length > 0) {
+    warnings.push(`Managed document has outgoing links to: ${linkImpact.outgoing.join(", ")}`);
+  }
+  return warnings;
 }
 
 async function updateMovedPathLinks(
@@ -695,26 +707,32 @@ async function updateMovedPathLinks(
   return changedPaths.sort();
 }
 
-async function incomingLinksForManagedDocument(
+async function linkImpactForManagedDocument(
   root: string,
   absolutePath: string
-): Promise<string[]> {
+): Promise<{ incoming: string[]; outgoing: string[] }> {
   if (!absolutePath.endsWith(".md")) {
-    return [];
+    return { incoming: [], outgoing: [] };
   }
 
   const registry = await buildDocumentRegistry(root);
   const relativePath = normalizeRelative(root, absolutePath);
   const document = registry.byPath.get(relativePath);
   if (!document?.id) {
-    return [];
+    return { incoming: [], outgoing: [] };
   }
 
   const graph = await buildGraph(root);
-  return graph.edges
-    .filter((edge) => edge.target_id === document.id)
-    .map((edge) => edge.source_path)
-    .sort();
+  return {
+    incoming: graph.edges
+      .filter((edge) => edge.target_id === document.id)
+      .map((edge) => edge.source_path)
+      .sort(),
+    outgoing: graph.edges
+      .filter((edge) => edge.source_id === document.id)
+      .map((edge) => `${edge.relation_type}:${edge.target_id}`)
+      .sort()
+  };
 }
 
 async function appendTrashManifest(

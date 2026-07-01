@@ -181,6 +181,31 @@ describe("project filesystem layer", () => {
     expect(result.warnings).toContain("Manual link updates required in: docs/ref.md");
   });
 
+  it("reports outgoing managed document links during move and delete", async () => {
+    await writeManagedDocument("docs/target.md", "DOC-TARGET", "design_doc", "", "# Target\n");
+    await writeManagedDocument(
+      "docs/source.md",
+      "DOC-SOURCE",
+      "design_doc",
+      "depends_on:\n  - DOC-TARGET",
+      "# Source\n"
+    );
+
+    const moved = await fsMove({
+      root: tempRoot,
+      source: "docs/source.md",
+      target: "docs/source-moved.md"
+    });
+    const deleted = await fsDelete({ root: tempRoot, path: "docs/source-moved.md" });
+
+    expect(moved.warnings).toContain(
+      "Managed document has outgoing links to: depends_on:DOC-TARGET"
+    );
+    expect(deleted.warnings).toContain(
+      "Deleted managed document had outgoing links to: depends_on:DOC-TARGET"
+    );
+  });
+
   it("rejects traversal, denied paths, symlink escape, and read-only writes", async () => {
     const outside = await mkdtemp(path.join(os.tmpdir(), "engimcp-fs-outside-"));
     await writeFile(path.join(outside, "outside.txt"), "outside\n", "utf8");
