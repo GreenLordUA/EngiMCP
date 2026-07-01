@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readDocument } from "../src/documents/documentService.js";
 import { initProject } from "../src/project/projectInit.js";
-import { getProjectStatus } from "../src/project/projectService.js";
+import { getProjectMap, getProjectStatus } from "../src/project/projectService.js";
 import { rebuildFullTextIndex } from "../src/search/ftsIndex.js";
 import { searchProject } from "../src/search/searchService.js";
 
@@ -83,5 +83,15 @@ describe("completion tools", () => {
       id: "DOC-TAGGED",
       path: "docs/tagged.md"
     });
+  });
+
+  it("limits project map output by relative path depth", async () => {
+    await initProject({ root: tempRoot });
+
+    const shallow = await getProjectMap({ root: tempRoot, max_depth: 1 });
+    const docsDepth = await getProjectMap({ root: tempRoot, max_depth: 2 });
+
+    expect(shallow.items).toEqual([]);
+    expect(docsDepth.items.map((item) => item.path)).toContain("docs/README.md");
   });
 });

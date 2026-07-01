@@ -80,9 +80,11 @@ export async function getProjectMap(input: ProjectMapInput): Promise<{ items: Pr
   const root = assertAbsoluteRoot(input.root);
   const registry = await buildDocumentRegistry(root);
   const allowedKinds = input.kind && input.kind.length > 0 ? new Set(input.kind) : undefined;
+  const maxDepth = input.max_depth;
 
   const items = registry.documents
     .filter((document) => !allowedKinds || (document.kind && allowedKinds.has(document.kind)))
+    .filter((document) => maxDepth === undefined || pathDepth(document.path) <= maxDepth)
     .map((document) => ({
       id: document.id,
       path: document.path,
@@ -100,4 +102,8 @@ function isRequirement(kind: string | undefined, id: string | undefined): boolea
 
 function isDecision(kind: string | undefined, id: string | undefined): boolean {
   return kind === "decision" || kind === "decision-log" || /^EDR-\d+/.test(id ?? "");
+}
+
+function pathDepth(relativePath: string): number {
+  return relativePath.split(/[\\/]+/).filter(Boolean).length;
 }
