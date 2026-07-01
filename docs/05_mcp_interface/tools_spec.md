@@ -284,7 +284,11 @@ Input:
   "query": "motor gearbox",
   "filters": {
     "kind": ["design_doc", "requirement"],
-    "status": ["draft", "accepted"]
+    "status": ["draft", "accepted"],
+    "tags": ["drivetrain"],
+    "frontmatter": {
+      "owner": "electrical"
+    }
   },
   "limit": 20
 }
