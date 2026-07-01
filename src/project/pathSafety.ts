@@ -2,13 +2,23 @@ import path from "node:path";
 import { lstat, realpath } from "node:fs/promises";
 import { readProjectConfig } from "../config/projectConfig.js";
 import { EngiMcpError } from "../mcp/errors.js";
+import { getRuntimeOptions } from "../runtime/options.js";
 
 export function assertAbsoluteRoot(root: string): string {
   if (!path.isAbsolute(root)) {
     throw new EngiMcpError("INVALID_ROOT", "Project root must be an absolute path.");
   }
 
-  return path.resolve(root);
+  const resolvedRoot = path.resolve(root);
+  const runtimeRoot = getRuntimeOptions().root;
+  if (runtimeRoot && path.resolve(runtimeRoot) !== resolvedRoot) {
+    throw new EngiMcpError(
+      "ROOT_MISMATCH",
+      `Project root must match the configured project root: ${runtimeRoot}`
+    );
+  }
+
+  return resolvedRoot;
 }
 
 export function isPathInsideRoot(root: string, target: string): boolean {

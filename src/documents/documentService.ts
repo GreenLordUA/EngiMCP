@@ -2,7 +2,7 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { writeAuditLog } from "../audit/auditLog.js";
 import { EngiMcpError } from "../mcp/errors.js";
-import { isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
+import { assertAbsoluteRoot, isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
 import { assertNoGitConflictMarkers, assertProjectWritable } from "../project/writeGuards.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { parseFrontmatter, serializeDocument } from "./frontmatter.js";
@@ -107,7 +107,8 @@ const relationFields = [
   "derives_from"
 ];
 
-export async function discoverMarkdownDocuments(root: string): Promise<ManagedDocument[]> {
+export async function discoverMarkdownDocuments(rootInput: string): Promise<ManagedDocument[]> {
+  const root = assertAbsoluteRoot(rootInput);
   const documents: ManagedDocument[] = [];
 
   async function walk(directory: string): Promise<void> {

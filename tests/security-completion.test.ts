@@ -61,6 +61,22 @@ describe("security completion", () => {
     ).rejects.toThrow("read-only");
   });
 
+  it("rejects tool roots outside the configured runtime root", async () => {
+    const otherRoot = await mkdtemp(path.join(os.tmpdir(), "engimcp-other-root-"));
+    await writeFile(
+      path.join(otherRoot, "project.yaml"),
+      "project:\n  id: other\n  name: Other\n  schema_version: 1.0.0\n",
+      "utf8"
+    );
+    configureRuntimeOptions(parseRuntimeOptions(["--root", tempRoot]));
+
+    try {
+      await expect(discoverMarkdownDocuments(otherRoot)).rejects.toThrow("configured project root");
+    } finally {
+      await rm(otherRoot, { recursive: true, force: true });
+    }
+  });
+
   it("blocks denied write paths and skips denied discovery paths", async () => {
     await writeFile(
       path.join(tempRoot, "private_notes.md"),
