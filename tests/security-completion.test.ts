@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createDocument, discoverMarkdownDocuments } from "../src/documents/documentService.js";
 import { resolveSafePath } from "../src/project/pathSafety.js";
 import { createRequirement } from "../src/requirements/requirementService.js";
+import { configureRuntimeOptions, parseRuntimeOptions } from "../src/runtime/options.js";
 
 let tempRoot: string;
 
@@ -18,6 +19,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  configureRuntimeOptions({ readOnly: false });
   await rm(tempRoot, { recursive: true, force: true });
 });
 
@@ -34,6 +36,20 @@ describe("security completion", () => {
         root: tempRoot,
         requirement_type: "functional",
         title: "Blocked",
+        statement: "This must not be written.",
+        priority: "must"
+      })
+    ).rejects.toThrow("read-only");
+  });
+
+  it("blocks write tools when the server is started with --read-only", async () => {
+    configureRuntimeOptions(parseRuntimeOptions(["--root", tempRoot, "--read-only"]));
+
+    await expect(
+      createRequirement({
+        root: tempRoot,
+        requirement_type: "functional",
+        title: "Runtime blocked",
         statement: "This must not be written.",
         priority: "must"
       })
