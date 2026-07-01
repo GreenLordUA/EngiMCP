@@ -1,4 +1,5 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { createBomItem } from "../bom/bomService.js";
 import { buildContextPack } from "../context/contextPack.js";
@@ -300,11 +301,8 @@ const fsGlobInput = {
   limit: z.number().int().positive().default(200)
 };
 
-function textResult(value: unknown) {
-  const result: {
-    structuredContent?: Record<string, unknown>;
-    content: Array<{ type: "text"; text: string }>;
-  } = {
+function textResult(value: unknown): CallToolResult {
+  const result: CallToolResult = {
     content: [
       {
         type: "text" as const,
@@ -320,8 +318,86 @@ function textResult(value: unknown) {
   return result;
 }
 
+const genericOutputSchema = {
+  audit_id: z.string().optional(),
+  broken_links_created: z.array(z.string()).optional(),
+  changed: z.boolean().optional(),
+  commit: z.string().optional(),
+  content: z.unknown().optional(),
+  copied: z.unknown().optional(),
+  created: z.boolean().optional(),
+  created_paths: z.array(z.string()).optional(),
+  decisions: z.number().optional(),
+  deleted: z.unknown().optional(),
+  diff_summary: z.string().optional(),
+  dirty: z.boolean().optional(),
+  documents: z.number().optional(),
+  edges: z.unknown().optional(),
+  errors: z.unknown().optional(),
+  estimated_tokens: z.number().optional(),
+  excluded: z.unknown().optional(),
+  exists: z.boolean().optional(),
+  files: z.unknown().optional(),
+  frontmatter: z.unknown().optional(),
+  git: z.unknown().optional(),
+  headings: z.unknown().optional(),
+  id: z.string().optional(),
+  impact: z.unknown().optional(),
+  is_git_repo: z.boolean().optional(),
+  items: z.unknown().optional(),
+  links: z.unknown().optional(),
+  links_updated: z.unknown().optional(),
+  matches: z.array(z.string()).optional(),
+  message: z.string().optional(),
+  moved: z.unknown().optional(),
+  nodes: z.unknown().optional(),
+  ok: z.boolean().optional(),
+  pack_id: z.string().optional(),
+  path: z.string().optional(),
+  project_id: z.string().optional(),
+  recommended_actions: z.unknown().optional(),
+  recommended_reads: z.unknown().optional(),
+  relations: z.number().optional(),
+  requirements: z.number().optional(),
+  results: z.unknown().optional(),
+  root: z.string().optional(),
+  size: z.number().optional(),
+  status: z.unknown().optional(),
+  summary: z.string().optional(),
+  task: z.string().optional(),
+  tasks_open: z.number().optional(),
+  trash_path: z.string().optional(),
+  truncated: z.boolean().optional(),
+  type: z.string().optional(),
+  validation: z.unknown().optional(),
+  validation_issues: z.number().optional(),
+  warnings: z.unknown().optional()
+};
+
+function registerStructuredTool<Args extends z.ZodRawShape>(
+  server: McpServer,
+  name: string,
+  description: string,
+  inputSchema: Args,
+  handler: (
+    input: z.output<z.ZodObject<Args>>
+  ) => ReturnType<typeof textResult> | Promise<ReturnType<typeof textResult>>
+): void {
+  server.registerTool(
+    name,
+    {
+      description,
+      inputSchema,
+      outputSchema: genericOutputSchema
+    },
+    (async (input: unknown) =>
+      handler(input as z.output<z.ZodObject<Args>>)) as unknown as ToolCallback<Args>
+  );
+}
+
 export function registerTools(server: McpServer): void {
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_project_init",
     "Create a new EngiMCP project structure.",
     projectInitInput,
@@ -330,7 +406,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_project_status",
     "Return a concise EngiMCP project status.",
     projectStatusInput,
@@ -341,7 +418,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_project_map",
     "Return a tree/map of managed Markdown documents.",
     projectMapInput,
@@ -350,7 +428,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_doc_read",
     "Read a managed Markdown document by ID or path.",
     docReadInput,
@@ -359,7 +438,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_doc_create",
     "Create a Markdown document from a template.",
     docCreateInput,
@@ -368,7 +448,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_frontmatter_patch",
     "Patch YAML frontmatter for a managed document.",
     frontmatterPatchInput,
@@ -377,7 +458,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_doc_patch_section",
     "Patch a Markdown section by heading path.",
     docPatchSectionInput,
@@ -386,7 +468,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_doc_add_relationship",
     "Add a frontmatter relationship to a managed document.",
     docAddRelationshipInput,
@@ -395,7 +478,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_validate_project",
     "Validate IDs, frontmatter, and basic document relationships.",
     validateProjectInput,
@@ -404,7 +488,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_graph_query",
     "Return graph neighbors for a document or entity.",
     graphQueryInput,
@@ -413,7 +498,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_impact_analyze",
     "Analyze transitive document impact for changed IDs.",
     impactAnalyzeInput,
@@ -422,7 +508,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_requirement_create",
     "Create a requirement document with the next typed requirement ID.",
     requirementCreateInput,
@@ -431,7 +518,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_decision_create",
     "Create an Engineering Decision Record.",
     decisionCreateInput,
@@ -440,7 +528,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_task_create",
     "Create a project task document.",
     taskCreateInput,
@@ -449,7 +538,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_context_pack",
     "Build compact task-specific context from project documents.",
     contextPackInput,
@@ -458,7 +548,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_git_status",
     "Return Git dirty status and changed files.",
     gitStatusInput,
@@ -467,7 +558,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_project_snapshot",
     "Create a local snapshot of project files before risky changes.",
     projectSnapshotInput,
@@ -476,7 +568,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_git_commit",
     "Create a Git commit for current project changes.",
     gitCommitInput,
@@ -485,11 +578,18 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool("engi_search", "Search managed Markdown documents.", searchInput, async (input) => {
-    return textResult(await searchProject(input));
-  });
+  registerStructuredTool(
+    server,
+    "engi_search",
+    "Search managed Markdown documents.",
+    searchInput,
+    async (input) => {
+      return textResult(await searchProject(input));
+    }
+  );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_rebuild_index",
     "Rebuild the derived SQLite project index.",
     rebuildIndexInput,
@@ -498,7 +598,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_test_report_create",
     "Create a test report linked to verified requirements.",
     testReportCreateInput,
@@ -507,7 +608,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_bom_item_create",
     "Create a BOM item document linked to related entities.",
     bomItemCreateInput,
@@ -516,15 +618,28 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool("engi_fs_tree", "Return a bounded safe project tree.", fsTreeInput, async (input) => {
-    return textResult(await fsTree(input));
-  });
+  registerStructuredTool(
+    server,
+    "engi_fs_tree",
+    "Return a bounded safe project tree.",
+    fsTreeInput,
+    async (input) => {
+      return textResult(await fsTree(input));
+    }
+  );
 
-  server.tool("engi_fs_list", "List a project directory safely.", fsListInput, async (input) => {
-    return textResult(await fsList(input));
-  });
+  registerStructuredTool(
+    server,
+    "engi_fs_list",
+    "List a project directory safely.",
+    fsListInput,
+    async (input) => {
+      return textResult(await fsList(input));
+    }
+  );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_read",
     "Read an ordinary project file safely.",
     fsReadInput,
@@ -533,7 +648,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_write",
     "Create, overwrite, or append an ordinary project file.",
     fsWriteInput,
@@ -542,7 +658,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_mkdir",
     "Create a project directory safely.",
     fsMkdirInput,
@@ -551,7 +668,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_move",
     "Move or rename a project file or directory safely.",
     fsMoveInput,
@@ -560,7 +678,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_copy",
     "Copy a project file or directory safely.",
     fsCopyInput,
@@ -569,7 +688,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_delete",
     "Move a project file or directory to project trash.",
     fsDeleteInput,
@@ -578,7 +698,8 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_exists",
     "Check whether a project path exists.",
     fsExistsInput,
@@ -587,11 +708,18 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.tool("engi_fs_stat", "Return project path metadata.", fsStatInput, async (input) => {
-    return textResult(await fsStat(input));
-  });
+  registerStructuredTool(
+    server,
+    "engi_fs_stat",
+    "Return project path metadata.",
+    fsStatInput,
+    async (input) => {
+      return textResult(await fsStat(input));
+    }
+  );
 
-  server.tool(
+  registerStructuredTool(
+    server,
     "engi_fs_glob",
     "Find project files by safe glob patterns.",
     fsGlobInput,

@@ -78,6 +78,7 @@ describe("index resources prompts completion", () => {
         "engi_fs_glob"
       ])
     );
+    expect(tools.tools.every((tool) => tool.outputSchema !== undefined)).toBe(true);
   });
 
   it("reports requirement verification warnings", async () => {
