@@ -1,6 +1,7 @@
 project:
   id: rc-car-mini
   name: Radio-Controlled Car Mini Fixture
+  schema_version: 1.0.0
   source_of_truth: markdown
 paths:
   docs: .

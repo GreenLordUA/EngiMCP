@@ -7,6 +7,7 @@ export interface EngiProjectConfig {
   project: {
     id: string;
     name?: string;
+    schema_version?: string;
     source_of_truth?: string;
   };
 }

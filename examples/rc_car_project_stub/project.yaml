@@ -1,6 +1,7 @@
 project:
   id: rc-car-example
   name: Radio-Controlled Car Example
+  schema_version: 1.0.0
   source_of_truth: markdown
 paths:
   docs: docs

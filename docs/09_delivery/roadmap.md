@@ -152,6 +152,8 @@ Done when:
 
 ## Milestone 7 - v1 Stabilization
 
+Status: complete.
+
 Goal: stable contract.
 
 Tasks:

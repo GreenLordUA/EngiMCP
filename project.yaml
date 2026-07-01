@@ -1,6 +1,7 @@
 project:
   id: engimcp
   name: EngiMCP
+  schema_version: 1.0.0
   description: MCP server for managing engineering projects in Markdown/Git.
   source_of_truth: markdown
   index_storage: sqlite

@@ -53,6 +53,6 @@ function parseStatusFiles(stdout: string): GitStatusFile[] {
     .filter(Boolean)
     .map((line) => ({
       status: line.slice(0, 2).trim(),
-      path: line.slice(3).trim()
+      path: (line[2] === " " ? line.slice(3) : line.slice(2)).trim()
     }));
 }
