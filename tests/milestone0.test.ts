@@ -40,7 +40,7 @@ describe("milestone 0 server skeleton", () => {
     );
   });
 
-  it("returns a mock project status through the MCP tool", async () => {
+  it("returns project status through the MCP tool", async () => {
     const server = createServer();
     const client = new Client({ name: "engimcp-test-client", version: "0.1.0" });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readDocument } from "../src/documents/documentService.js";
 import { initProject } from "../src/project/projectInit.js";
 import { getProjectStatus } from "../src/project/projectService.js";
+import { rebuildFullTextIndex } from "../src/search/ftsIndex.js";
 import { searchProject } from "../src/search/searchService.js";
 
 let tempRoot: string;
@@ -49,6 +50,7 @@ describe("completion tools", () => {
   it("searches Markdown documents by text and metadata filters", async () => {
     await initProject({ root: tempRoot });
 
+    const index = await rebuildFullTextIndex(tempRoot);
     const results = await searchProject({
       root: tempRoot,
       query: "overview",
@@ -57,6 +59,7 @@ describe("completion tools", () => {
       }
     });
 
+    expect(index.documents).toHaveLength(1);
     expect(results.results[0]).toMatchObject({
       id: "DOC-PROJECT-README",
       path: "docs/README.md"
