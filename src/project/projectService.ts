@@ -2,6 +2,7 @@ import path from "node:path";
 import { readProjectConfig } from "../config/projectConfig.js";
 import { buildDocumentRegistry } from "../documents/documentService.js";
 import { getGitStatus } from "../git/gitAdapter.js";
+import { ensureIndex } from "../storage/sqlite.js";
 import { validateProject } from "../validation/validator.js";
 import { assertAbsoluteRoot } from "./pathSafety.js";
 
@@ -43,10 +44,9 @@ export interface ProjectMapItem {
 
 export async function getProjectStatus(input: ProjectStatusInput): Promise<ProjectStatus> {
   const root = assertAbsoluteRoot(input.root);
-  const [projectConfig, registry] = await Promise.all([
-    readProjectConfig(root),
-    buildDocumentRegistry(root)
-  ]);
+  const projectConfig = await readProjectConfig(root);
+  await ensureIndex(root);
+  const registry = await buildDocumentRegistry(root);
 
   const status: ProjectStatus = {
     project_id: projectConfig.project.id ?? path.basename(root),

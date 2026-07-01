@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { access, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import initSqlJs from "sql.js";
 import { buildDocumentRegistry } from "../documents/documentService.js";
@@ -11,6 +11,24 @@ export interface RebuildIndexResult {
   documents: number;
   relations: number;
   validation_issues: number;
+}
+
+export interface EnsureIndexResult {
+  ok: boolean;
+  path: string;
+  rebuilt: boolean;
+  index?: RebuildIndexResult;
+}
+
+export async function ensureIndex(root: string): Promise<EnsureIndexResult> {
+  const indexPath = path.join(root, ".engimcp/index.sqlite");
+  try {
+    await access(indexPath);
+    return { ok: true, path: ".engimcp/index.sqlite", rebuilt: false };
+  } catch {
+    const index = await rebuildIndex(root);
+    return { ok: true, path: index.path, rebuilt: true, index };
+  }
 }
 
 export async function rebuildIndex(root: string): Promise<RebuildIndexResult> {

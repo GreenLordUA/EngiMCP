@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -43,6 +44,29 @@ describe("milestone 7 v1 stabilization", () => {
     );
 
     await expect(readProjectConfig(tempRoot)).rejects.toThrow("Unsupported project schema_version");
+  });
+
+  it("restores the derived index when opening a project after restart", async () => {
+    await writeFile(
+      path.join(tempRoot, "project.yaml"),
+      "project:\n  id: restart\n  name: Restart\n  schema_version: 1.0.0\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(tempRoot, "doc.md"),
+      "---\nid: DOC-RESTART\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Restart\n",
+      "utf8"
+    );
+    await rm(path.join(tempRoot, ".engimcp/index.sqlite"), { force: true });
+
+    const status = await getProjectStatus({
+      root: tempRoot,
+      include_git_status: false,
+      include_validation_summary: false
+    });
+
+    expect(status.documents).toBe(1);
+    expect(existsSync(path.join(tempRoot, ".engimcp/index.sqlite"))).toBe(true);
   });
 
   it("indexes 1000 markdown files within the MVP benchmark target", async () => {
