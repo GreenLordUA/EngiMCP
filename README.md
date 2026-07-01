@@ -104,6 +104,7 @@ Milestone 3 adds graph and impact tools: `engi_graph_query` and `engi_impact_ana
 Milestone 4 adds entity creation tools: `engi_requirement_create`, `engi_decision_create`, and
 `engi_task_create`.
 Milestone 5 adds `engi_context_pack` for compact task-specific context.
+Milestone 6 adds `engi_git_status` for Git dirty state, changed files, and diff summary.
 
 ## License
 

@@ -10,6 +10,7 @@ import {
 import { queryGraph } from "../graph/graphBuilder.js";
 import { analyzeImpact } from "../graph/impact.js";
 import { relationTypes } from "../graph/relations.js";
+import { getGitStatus } from "../git/gitAdapter.js";
 import { getProjectMap, getProjectStatus } from "../project/projectService.js";
 import { createDecision } from "../decisions/decisionService.js";
 import { createRequirement } from "../requirements/requirementService.js";
@@ -125,6 +126,10 @@ const contextPackInput = {
   include_decisions: z.boolean().default(true),
   include_open_tasks: z.boolean().default(true),
   include_validation: z.boolean().default(true)
+};
+
+const gitStatusInput = {
+  root: z.string().min(1).describe("Absolute path to the project root.")
 };
 
 function textResult(value: unknown) {
@@ -255,6 +260,15 @@ export function registerTools(server: McpServer): void {
     contextPackInput,
     async (input) => {
       return textResult(await buildContextPack(input));
+    }
+  );
+
+  server.tool(
+    "engi_git_status",
+    "Return Git dirty status and changed files.",
+    gitStatusInput,
+    async (input) => {
+      return textResult(await getGitStatus(input.root));
     }
   );
 }

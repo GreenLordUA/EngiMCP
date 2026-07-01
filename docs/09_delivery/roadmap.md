@@ -133,6 +133,8 @@ Done when:
 
 ## Milestone 6 - Git Integration
 
+Status: complete.
+
 Goal: safe work on top of Git.
 
 Tasks:
