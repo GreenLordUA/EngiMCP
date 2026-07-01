@@ -12,8 +12,10 @@ import { analyzeImpact } from "../graph/impact.js";
 import { relationTypes } from "../graph/relations.js";
 import { getGitStatus } from "../git/gitAdapter.js";
 import { getProjectMap, getProjectStatus } from "../project/projectService.js";
+import { initProject } from "../project/projectInit.js";
 import { createDecision } from "../decisions/decisionService.js";
 import { createRequirement } from "../requirements/requirementService.js";
+import { searchProject } from "../search/searchService.js";
 import { createTask } from "../tasks/taskService.js";
 import { validateProject } from "../validation/validator.js";
 
@@ -21,6 +23,12 @@ const projectStatusInput = {
   root: z.string().min(1).describe("Absolute path to the project root."),
   include_validation_summary: z.boolean().default(true),
   include_git_status: z.boolean().default(true)
+};
+
+const projectInitInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  template: z.enum(["default"]).default("default"),
+  force: z.boolean().default(false)
 };
 
 const projectMapInput = {
@@ -33,6 +41,8 @@ const docReadInput = {
   root: z.string().min(1).describe("Absolute path to the project root."),
   id: z.string().nullable().optional(),
   path: z.string().nullable().optional(),
+  kind: z.string().nullable().optional(),
+  heading_path: z.array(z.string()).nullable().optional(),
   mode: z.enum(["full", "summary", "frontmatter", "headings", "section"]).default("full")
 };
 
@@ -132,6 +142,18 @@ const gitStatusInput = {
   root: z.string().min(1).describe("Absolute path to the project root.")
 };
 
+const searchInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  query: z.string().min(1),
+  filters: z
+    .object({
+      kind: z.array(z.string()).optional(),
+      status: z.array(z.string()).optional()
+    })
+    .optional(),
+  limit: z.number().int().positive().default(20)
+};
+
 function textResult(value: unknown) {
   return {
     content: [
@@ -144,6 +166,15 @@ function textResult(value: unknown) {
 }
 
 export function registerTools(server: McpServer): void {
+  server.tool(
+    "engi_project_init",
+    "Create a new EngiMCP project structure.",
+    projectInitInput,
+    async (input) => {
+      return textResult(await initProject(input));
+    }
+  );
+
   server.tool(
     "engi_project_status",
     "Return a concise EngiMCP project status.",
@@ -271,4 +302,8 @@ export function registerTools(server: McpServer): void {
       return textResult(await getGitStatus(input.root));
     }
   );
+
+  server.tool("engi_search", "Search managed Markdown documents.", searchInput, async (input) => {
+    return textResult(await searchProject(input));
+  });
 }

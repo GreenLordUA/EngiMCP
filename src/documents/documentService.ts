@@ -32,7 +32,9 @@ export interface DocumentRegistry {
 export interface DocumentReadInput {
   id?: string | null;
   path?: string | null;
+  kind?: string | null;
   mode?: "full" | "summary" | "frontmatter" | "headings" | "section";
+  heading_path?: string[] | null;
 }
 
 export interface DocumentReadResult {
@@ -81,7 +83,7 @@ export interface DocumentSectionPatchInput {
   dry_run?: boolean;
 }
 
-const ignoredDirectories = new Set([".git", ".engimcp", "node_modules", "dist"]);
+const ignoredDirectories = new Set([".git", ".engimcp", "node_modules", "dist", "templates"]);
 const relationFields = [
   "depends_on",
   "impacts",
@@ -191,7 +193,13 @@ export async function readDocument(
   }
 
   if (mode === "section") {
-    throw new EngiMcpError("NOT_IMPLEMENTED", "Section reads are not implemented in Milestone 1.");
+    if (!input.heading_path || input.heading_path.length === 0) {
+      throw new EngiMcpError("INVALID_HEADING_PATH", "heading_path is required for section mode.");
+    }
+    return {
+      ...result,
+      content: readSection(parsed.body, input.heading_path)
+    };
   }
 
   return {
@@ -382,7 +390,17 @@ function resolveDocument(registry: DocumentRegistry, input: DocumentReadInput): 
     return document;
   }
 
-  throw new EngiMcpError("DOCUMENT_SELECTOR_REQUIRED", "Provide either document id or path.");
+  if (input.kind) {
+    const matches = registry.documents
+      .filter((document) => document.kind === input.kind)
+      .sort((left, right) => left.path.localeCompare(right.path));
+    if (matches.length === 0) {
+      throw new EngiMcpError("DOCUMENT_NOT_FOUND", `Document kind not found: ${input.kind}`);
+    }
+    return matches[0] as ManagedDocument;
+  }
+
+  throw new EngiMcpError("DOCUMENT_SELECTOR_REQUIRED", "Provide document id, path, or kind.");
 }
 
 function formatHeading(heading: Heading): string {
@@ -396,6 +414,48 @@ function firstParagraph(markdown: string): string {
       .map((part) => part.trim())
       .find((part) => part.length > 0 && !part.startsWith("#")) ?? ""
   );
+}
+
+function readSection(markdown: string, headingPath: string[]): string {
+  const lines = markdown.split(/\r?\n/);
+  let searchFrom = 0;
+  let currentStart = -1;
+  let currentLevel = 0;
+
+  for (const heading of headingPath) {
+    let found = false;
+    for (let index = searchFrom; index < lines.length; index += 1) {
+      const match = lines[index]?.match(/^(#{1,6})\s+(.*)$/);
+      if (!match) {
+        continue;
+      }
+      const level = match[1].length;
+      if (currentLevel > 0 && level <= currentLevel) {
+        break;
+      }
+      if (match[2].trim() === heading) {
+        currentStart = index;
+        currentLevel = level;
+        searchFrom = index + 1;
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new EngiMcpError("SECTION_NOT_FOUND", `Section not found: ${heading}`);
+    }
+  }
+
+  let end = lines.length;
+  for (let index = currentStart + 1; index < lines.length; index += 1) {
+    const match = lines[index]?.match(/^(#{1,6})\s+/);
+    if (match && match[1].length <= currentLevel) {
+      end = index;
+      break;
+    }
+  }
+
+  return lines.slice(currentStart, end).join("\n");
 }
 
 function summarizeLineDiff(before: string, after: string): string {
