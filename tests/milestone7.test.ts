@@ -35,6 +35,16 @@ describe("milestone 7 v1 stabilization", () => {
     expect(config.project.schema_version).toBe("1.0.0");
   });
 
+  it("returns a clear error for unsupported project schema versions", async () => {
+    await writeFile(
+      path.join(tempRoot, "project.yaml"),
+      "project:\n  id: old-schema\n  name: Old Schema\n  schema_version: 0.9.0\n",
+      "utf8"
+    );
+
+    await expect(readProjectConfig(tempRoot)).rejects.toThrow("Unsupported project schema_version");
+  });
+
   it("indexes 1000 markdown files within the MVP benchmark target", async () => {
     await writeFile(
       path.join(tempRoot, "project.yaml"),

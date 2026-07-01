@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { parse } from "yaml";
+import { EngiMcpError } from "../mcp/errors.js";
 import { projectConfigSchema } from "./schema.js";
 
 export interface EngiProjectConfig {
@@ -24,5 +25,13 @@ export async function readProjectConfig(root: string): Promise<EngiProjectConfig
   await access(configPath);
 
   const parsed = parse(await readFile(configPath, "utf8")) as unknown;
-  return projectConfigSchema.parse(parsed);
+  const config = projectConfigSchema.parse(parsed);
+  if (config.project.schema_version !== "1.0.0") {
+    throw new EngiMcpError(
+      "UNSUPPORTED_SCHEMA_VERSION",
+      `Unsupported project schema_version ${config.project.schema_version}; expected 1.0.0. Run a project migration before opening this project.`
+    );
+  }
+
+  return config;
 }
