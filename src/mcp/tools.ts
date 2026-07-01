@@ -183,7 +183,9 @@ const searchInput = {
   filters: z
     .object({
       kind: z.array(z.string()).optional(),
-      status: z.array(z.string()).optional()
+      status: z.array(z.string()).optional(),
+      tags: z.array(z.string()).optional(),
+      frontmatter: z.record(z.string(), z.unknown()).optional()
     })
     .optional(),
   limit: z.number().int().positive().default(20)

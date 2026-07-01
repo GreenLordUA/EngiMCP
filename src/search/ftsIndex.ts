@@ -7,6 +7,8 @@ export interface FullTextIndexDocument {
   path: string;
   kind?: string;
   status?: string;
+  tags: string[];
+  frontmatter: Record<string, unknown>;
   content: string;
   lowerContent: string;
 }
@@ -15,6 +17,8 @@ export interface FullTextSearchOptions {
   query: string;
   kind?: string[];
   status?: string[];
+  tags?: string[];
+  frontmatter?: Record<string, unknown>;
   limit?: number;
 }
 
@@ -41,6 +45,8 @@ export async function rebuildFullTextIndex(rootInput: string): Promise<FullTextI
         path: document.path,
         kind: document.kind,
         status: document.status,
+        tags: extractStringList(document.frontmatter.tags),
+        frontmatter: document.frontmatter,
         content,
         lowerContent: content.toLowerCase()
       };
@@ -62,6 +68,7 @@ function searchIndex(
   const terms = normalizedTerms(options.query);
   const kindFilter = options.kind ? new Set(options.kind) : undefined;
   const statusFilter = options.status ? new Set(options.status) : undefined;
+  const tagFilter = options.tags ? new Set(options.tags) : undefined;
   const results: FullTextSearchResult[] = [];
 
   for (const document of documents) {
@@ -69,6 +76,12 @@ function searchIndex(
       continue;
     }
     if (statusFilter && (!document.status || !statusFilter.has(document.status))) {
+      continue;
+    }
+    if (tagFilter && !document.tags.some((tag) => tagFilter.has(tag))) {
+      continue;
+    }
+    if (options.frontmatter && !frontmatterMatches(document.frontmatter, options.frontmatter)) {
       continue;
     }
 
@@ -93,6 +106,26 @@ function searchIndex(
   return results
     .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
     .slice(0, options.limit ?? 20);
+}
+
+function frontmatterMatches(
+  frontmatter: Record<string, unknown>,
+  filters: Record<string, unknown>
+): boolean {
+  return Object.entries(filters).every(([key, expected]) => {
+    const actual = frontmatter[key];
+    if (Array.isArray(actual)) {
+      return actual.some((item) => item === expected);
+    }
+    return actual === expected;
+  });
+}
+
+function extractStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+  return typeof value === "string" ? [value] : [];
 }
 
 function normalizedTerms(query: string): string[] {

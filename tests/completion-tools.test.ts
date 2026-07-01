@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -49,6 +49,11 @@ describe("completion tools", () => {
 
   it("searches Markdown documents by text and metadata filters", async () => {
     await initProject({ root: tempRoot });
+    await writeFile(
+      path.join(tempRoot, "docs/tagged.md"),
+      "---\nid: DOC-TAGGED\nkind: design_doc\nstatus: accepted\nversion: 0.1.0\ntags:\n  - drivetrain\nowner: electrical\n---\n\n# Tagged\n\nMotor overview for tagged search.\n",
+      "utf8"
+    );
 
     const index = await rebuildFullTextIndex(tempRoot);
     const results = await searchProject({
@@ -58,11 +63,25 @@ describe("completion tools", () => {
         kind: ["overview"]
       }
     });
+    const tagged = await searchProject({
+      root: tempRoot,
+      query: "motor",
+      filters: {
+        tags: ["drivetrain"],
+        frontmatter: {
+          owner: "electrical"
+        }
+      }
+    });
 
-    expect(index.documents).toHaveLength(1);
+    expect(index.documents).toHaveLength(2);
     expect(results.results[0]).toMatchObject({
       id: "DOC-PROJECT-README",
       path: "docs/README.md"
+    });
+    expect(tagged.results[0]).toMatchObject({
+      id: "DOC-TAGGED",
+      path: "docs/tagged.md"
     });
   });
 });

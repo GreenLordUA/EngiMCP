@@ -7,6 +7,8 @@ export interface SearchProjectInput {
   filters?: {
     kind?: string[];
     status?: string[];
+    tags?: string[];
+    frontmatter?: Record<string, unknown>;
   };
   limit?: number;
 }
@@ -29,6 +31,8 @@ export async function searchProject(
       query: input.query,
       kind: input.filters?.kind,
       status: input.filters?.status,
+      tags: input.filters?.tags,
+      frontmatter: input.filters?.frontmatter,
       limit: input.limit
     })
   };
