@@ -2,120 +2,220 @@
 id: README
 kind: overview
 status: draft
-version: 0.1.0
+version: 1.0.0
 ---
 
-# EngiMCP - Engineering MCP for Long-Running Engineering Projects
+# EngiMCP
 
-**Technical name:** `EngiMCP` / `Engineering Project MCP`.  
-**Purpose:** an MCP server that gives an LLM agent controlled, safe, and traceable access to a local engineering project stored in a Markdown/Git repository.
+EngiMCP is a local MCP server for managing engineering projects stored as Markdown, YAML frontmatter, and Git history. It gives an LLM agent structured, safe access to requirements, engineering decisions, calculations, tests, tasks, BOM items, document relationships, impact analysis, context packs, and ordinary project files.
 
-## Core Idea
+The source of truth stays in the project folder. The SQLite index under `.engimcp/index.sqlite` is derived data and can be rebuilt.
 
-A basic filesystem MCP can read and write files. `EngiMCP` should understand not only files, but **engineering entities**:
+## Why It Exists
 
-- requirements;
-- engineering decisions / ADR / EDR;
-- calculations;
-- subsystem specifications;
-- tests;
-- tasks;
-- BOM;
-- relationships between documents;
-- change impact.
+Long-running engineering work cannot live only in chat. Requirements drift, decisions get forgotten, tests stop matching design assumptions, and documents become inconsistent.
 
-The goal is to give documentation roughly the same working model that Codex provides for code:
+Codex is strong at inspecting and changing code repositories, but engineering documentation needs a domain layer on top of files. EngiMCP exposes IDs, document kinds, frontmatter, links, graph relationships, validation, impact analysis, and focused writes so the agent can answer questions such as:
 
 ```text
-the user says: "we are changing the battery"
-EngiMCP finds related documents
-the agent reads only the required context
-the agent proposes changes
-EngiMCP applies focused edits
-EngiMCP updates the decision log, tasks, and index
-Git records the history
+What breaks if we change the battery?
+Prepare context for changing the project motors.
+Create an EDR for this design choice.
+Find requirements that are not verified by tests.
 ```
 
-## Why This Is Needed
+## Requirements
 
-A long-running engineering project cannot live only in chat. After a month, context is lost, decisions are forgotten, requirements drift away from calculations, and documents become inconsistent.
+- Node.js 20 or newer.
+- npm.
+- Git, for Git status/snapshot/commit workflows.
+- An MCP-compatible client such as Codex, Claude Code, or another local MCP client.
 
-Codex solves a different problem well: it can inspect and change a code repository. Engineering documentation needs an additional layer. The agent must understand requirements, decisions, tests, BOM items, calculations, and the relationships between them. A plain repository view does not tell the agent which requirement is verified by which test, which EDR explains a design choice, or which documents become stale after changing a battery, motor, material, interface, or safety constraint.
-
-The source of truth should live in the project folder, but it must be exposed as an engineering model, not just as files. `EngiMCP` gives the agent structured access to that model: IDs, frontmatter, links, dependency graph, impact analysis, validation, and safe focused writes.
-
-## MVP Goals
-
-The MVP should be able to:
-
-1. Initialize a project structure.
-2. Read documents by logical ID, not only by path.
-3. Create and update Markdown documents with YAML frontmatter.
-4. Manage requirements, decisions, tasks, and a change log.
-5. Build a dependency graph between documents.
-6. Run impact analysis: what a change will affect.
-7. Build a compact context pack for an LLM.
-8. Validate the project: broken links, duplicate IDs, missing required fields.
-9. Run locally without sending data outside the machine.
-10. Work on top of Git without breaking a manual workflow.
-11. Manage ordinary project files and folders through a safe filesystem layer.
-
-## Documentation Map
-
-- `docs/00_overview/product_vision.md` - product vision.
-- `docs/01_research/reference_projects.md` - reference projects.
-- `docs/02_requirements/technical_requirements.md` - full technical requirements.
-- `docs/02_requirements/filesystem_overlay_requirements.md` - filesystem layer requirements.
-- `docs/02_requirements/acceptance_criteria.md` - acceptance criteria.
-- `docs/03_architecture/system_architecture.md` - system architecture.
-- `docs/04_data_model/entities_and_schema.md` - data model.
-- `docs/05_mcp_interface/tools_spec.md` - MCP tools.
-- `docs/05_mcp_interface/filesystem_tools_spec.md` - filesystem MCP tools.
-- `docs/06_workflows/workflows.md` - workflows.
-- `docs/07_quality/testing_strategy.md` - testing strategy.
-- `docs/08_security/security_model.md` - security.
-- `docs/09_delivery/roadmap.md` - implementation roadmap.
-
-## Implementation Stack
-
-The MVP implementation stack:
-
-```text
-Language: TypeScript
-Transport: MCP stdio for the MVP
-Storage: Markdown + YAML frontmatter + local SQLite index
-Search: ripgrep/full-text in the MVP; embeddings are outside MVP scope
-Git: shell out to git CLI or use a library
-Client: Codex / Claude Code / any MCP-compatible client
-```
-
-## Development
+## Installation
 
 ```bash
 npm install
 npm run build
-npm run check
-npm run smoke
+```
+
+For local development:
+
+```bash
 npm run dev
 ```
 
-The current server exposes these MCP stdio tools:
-`engi_project_init`, `engi_project_status`, `engi_project_map`, `engi_doc_read`,
-`engi_doc_create`, `engi_frontmatter_patch`, `engi_doc_patch_section`,
-`engi_doc_add_relationship`, `engi_search`, `engi_graph_query`, `engi_impact_analyze`,
-`engi_requirement_create`, `engi_decision_create`, `engi_task_create`,
-`engi_context_pack`, `engi_validate_project`, `engi_git_status`,
-`engi_project_snapshot`, `engi_git_commit`, `engi_rebuild_index`,
-`engi_test_report_create`, `engi_bom_item_create`, `engi_fs_tree`,
-`engi_fs_list`, `engi_fs_read`, `engi_fs_write`, `engi_fs_mkdir`,
-`engi_fs_move`, `engi_fs_copy`, `engi_fs_delete`, `engi_fs_exists`,
-`engi_fs_stat`, and `engi_fs_glob`.
+For a built stdio MCP server:
 
-The split is intentional:
+```bash
+npm run start
+```
 
-- `engi_doc_*` tools operate on managed engineering documents: frontmatter, IDs, kinds, links, graph, and validation.
-- `engi_fs_*` tools operate on files and folders inside `project_root`: create, read, move, copy, delete, list, and inspect metadata.
+The package exposes a binary named `engimcp` after build/install:
+
+```bash
+engimcp --root /absolute/path/to/project
+engimcp --root /absolute/path/to/project --read-only
+```
+
+When `--root` is set, tool calls must use that same project root. When `--read-only` is set, write-like tools are rejected.
+
+## Project Setup
+
+Initialize a new project through the MCP tool:
+
+```text
+engi_project_init(root="/absolute/path/to/project")
+```
+
+This creates `project.yaml`, base docs, templates, and `.engimcp` support paths.
+
+A valid project has:
+
+```text
+project.yaml
+docs/
+templates/
+.engimcp/
+```
+
+Managed Markdown documents use YAML frontmatter with at least:
+
+```yaml
+---
+id: DOC-EXAMPLE
+kind: design_doc
+status: draft
+version: 0.1.0
+---
+```
+
+## Quick Start
+
+1. Start the MCP server from this repository or install it as a binary.
+2. Connect an MCP client over stdio.
+3. Initialize or open a project root.
+4. Call `engi_project_status` to verify the project.
+5. Use `engi_context_pack` before asking the agent to change a subsystem.
+6. Use `engi_impact_analyze` before changing requirements, decisions, battery, motors, BOM, tests, or calculations.
+7. Use `engi_validate_project` after changes.
+8. Review the Git diff with `engi_git_status`.
+
+Example workflow:
+
+```text
+engi_project_status(root)
+engi_context_pack(root, task="we are changing the project motors")
+engi_impact_analyze(root, changed_ids=["DOC-RC-CAR-BATTERY"])
+engi_doc_patch_section(root, id="DOC-RC-CAR-BATTERY", heading_path=["Initial Estimate"], ...)
+engi_validate_project(root)
+engi_git_status(root)
+```
+
+## Core Tools
+
+Project:
+
+- `engi_project_init`
+- `engi_project_status`
+- `engi_project_map`
+- `engi_rebuild_index`
+
+Managed engineering documents:
+
+- `engi_doc_read`
+- `engi_doc_create`
+- `engi_frontmatter_patch`
+- `engi_doc_patch_section`
+- `engi_doc_add_relationship`
+
+Engineering entities:
+
+- `engi_requirement_create`
+- `engi_decision_create`
+- `engi_task_create`
+- `engi_test_report_create`
+- `engi_bom_item_create`
+
+Analysis and retrieval:
+
+- `engi_search`
+- `engi_graph_query`
+- `engi_impact_analyze`
+- `engi_context_pack`
+- `engi_validate_project`
+
+Git:
+
+- `engi_git_status`
+- `engi_project_snapshot`
+- `engi_git_commit`
+
+Safe filesystem layer:
+
+- `engi_fs_tree`
+- `engi_fs_list`
+- `engi_fs_read`
+- `engi_fs_write`
+- `engi_fs_mkdir`
+- `engi_fs_move`
+- `engi_fs_copy`
+- `engi_fs_delete`
+- `engi_fs_exists`
+- `engi_fs_stat`
+- `engi_fs_glob`
+
+Use `engi_doc_*` for managed engineering documents where IDs, frontmatter, links, graph, and validation matter. Use `engi_fs_*` for ordinary files and folders inside the project root.
+
+## Safety Model
+
+EngiMCP is not raw filesystem access.
+
+- All operations are restricted to `project_root`.
+- Runtime `--root` pins the allowed project root.
+- `../` traversal and absolute-path escape are rejected.
+- Symlink escape outside the root is rejected.
+- Deny patterns block `.git`, `.env`, SSH keys, secrets, private files, cache paths, and dependency folders.
+- Project-configured deny patterns extend the defaults.
+- Write-like tools respect read-only mode.
+- Deletes use trash by default: `.engimcp/trash/YYYY-MM-DD/<original-path>`.
+- Writes are atomic where practical.
+- Write/move/copy/delete/mkdir operations write audit log entries.
+- Overwrite-like operations refuse to modify files containing Git conflict markers.
+
+## Validation and Indexing
+
+`engi_validate_project` checks IDs, required frontmatter, duplicate IDs, broken links, dependency cycles, and requirement verification gaps.
+
+`engi_rebuild_index` regenerates `.engimcp/index.sqlite` from Markdown and frontmatter. Filesystem write-like operations rebuild the index after successful changes, and `engi_project_status` restores the index if it is missing.
+
+## Development Commands
+
+```bash
+npm run build
+npm run lint
+npm run format
+npm run format:check
+npm test
+npm run check
+npm run smoke
+```
+
+`npm run check` runs build, lint, format check, and the test suite. `npm run smoke` builds the project and runs a project-status smoke check against the radio-controlled car example.
+
+## Important Documentation
+
+- `docs/02_requirements/technical_requirements.md` - functional and non-functional requirements.
+- `docs/02_requirements/filesystem_overlay_requirements.md` - safe filesystem layer requirements.
+- `docs/02_requirements/acceptance_criteria.md` - acceptance criteria.
+- `docs/03_architecture/system_architecture.md` - system architecture.
+- `docs/04_data_model/entities_and_schema.md` - entity and frontmatter model.
+- `docs/05_mcp_interface/tools_spec.md` - MCP tool contracts.
+- `docs/05_mcp_interface/filesystem_tools_spec.md` - filesystem tool contracts.
+- `docs/07_quality/testing_strategy.md` - test strategy.
+- `docs/08_security/security_model.md` - security model.
+- `docs/09_delivery/roadmap.md` - milestone roadmap.
+- `CHANGELOG.md` - release notes.
 
 ## License
 
-MIT License.
+MIT.
