@@ -2,7 +2,8 @@ import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { writeAuditLog } from "../audit/auditLog.js";
 import { EngiMcpError } from "../mcp/errors.js";
-import { resolveInsideRoot } from "../project/pathSafety.js";
+import { isDeniedPath, resolveSafePath } from "../project/pathSafety.js";
+import { assertProjectWritable } from "../project/writeGuards.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { parseFrontmatter, serializeDocument } from "./frontmatter.js";
 import { parseHeadings, type Heading } from "./headings.js";
@@ -118,6 +119,9 @@ export async function discoverMarkdownDocuments(root: string): Promise<ManagedDo
 
       const absolutePath = path.join(directory, entry.name);
       const relativePath = path.relative(root, absolutePath);
+      if (isDeniedPath(relativePath)) {
+        continue;
+      }
       const content = await readFile(absolutePath, "utf8");
       const frontmatter = parseFrontmatter(content);
       const data = frontmatter.data ?? {};
@@ -163,7 +167,7 @@ export async function readDocument(
 ): Promise<DocumentReadResult> {
   const registry = await buildDocumentRegistry(root);
   const document = resolveDocument(registry, input);
-  const content = await readFile(resolveInsideRoot(root, document.path), "utf8");
+  const content = await readFile(await resolveSafePath(root, document.path), "utf8");
   const parsed = parseFrontmatter(content);
   const mode = input.mode ?? "full";
 
@@ -211,7 +215,8 @@ export async function readDocument(
 
 export async function createDocument(input: DocumentCreateInput): Promise<DocumentWriteResult> {
   const root = path.resolve(input.root);
-  const targetPath = resolveInsideRoot(root, input.path);
+  await assertProjectWritable(root);
+  const targetPath = await resolveSafePath(root, input.path);
   const templateContent = await loadTemplate(root, input.template, input.kind);
   const parsed = parseFrontmatter(templateContent);
   const frontmatter = {
@@ -267,6 +272,7 @@ export async function patchDocumentFrontmatter(
   input: FrontmatterPatchInput
 ): Promise<DocumentWriteResult> {
   const root = path.resolve(input.root);
+  await assertProjectWritable(root);
   const registry = await buildDocumentRegistry(root);
   const document = resolveDocument(registry, { id: input.id });
   const original = await readFile(document.absolutePath, "utf8");
@@ -314,6 +320,7 @@ export async function patchDocumentSection(
   input: DocumentSectionPatchInput
 ): Promise<DocumentWriteResult> {
   const root = path.resolve(input.root);
+  await assertProjectWritable(root);
   const registry = await buildDocumentRegistry(root);
   const document = resolveDocument(registry, { id: input.id });
   const original = await readFile(document.absolutePath, "utf8");

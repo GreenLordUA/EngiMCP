@@ -1,0 +1,79 @@
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { createDocument, discoverMarkdownDocuments } from "../src/documents/documentService.js";
+import { resolveSafePath } from "../src/project/pathSafety.js";
+import { createRequirement } from "../src/requirements/requirementService.js";
+
+let tempRoot: string;
+
+beforeEach(async () => {
+  tempRoot = await mkdtemp(path.join(os.tmpdir(), "engimcp-security-"));
+  await writeFile(
+    path.join(tempRoot, "project.yaml"),
+    "project:\n  id: security\n  name: Security\n  schema_version: 1.0.0\nmcp:\n  read_only_mode: false\n",
+    "utf8"
+  );
+});
+
+afterEach(async () => {
+  await rm(tempRoot, { recursive: true, force: true });
+});
+
+describe("security completion", () => {
+  it("blocks write tools in read-only mode", async () => {
+    await writeFile(
+      path.join(tempRoot, "project.yaml"),
+      "project:\n  id: security\n  name: Security\n  schema_version: 1.0.0\nmcp:\n  read_only_mode: true\n",
+      "utf8"
+    );
+
+    await expect(
+      createRequirement({
+        root: tempRoot,
+        requirement_type: "functional",
+        title: "Blocked",
+        statement: "This must not be written.",
+        priority: "must"
+      })
+    ).rejects.toThrow("read-only");
+  });
+
+  it("blocks denied write paths and skips denied discovery paths", async () => {
+    await writeFile(
+      path.join(tempRoot, "private_notes.md"),
+      "---\nid: DOC-PRIVATE\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Private\n",
+      "utf8"
+    );
+
+    const documents = await discoverMarkdownDocuments(tempRoot);
+    await expect(
+      createDocument({
+        root: tempRoot,
+        kind: "design_doc",
+        id: "DOC-SECRET",
+        title: "Secret",
+        path: "docs/secret-plan.md",
+        template: "design_doc"
+      })
+    ).rejects.toThrow("denied");
+
+    expect(documents.map((document) => document.id)).not.toContain("DOC-PRIVATE");
+  });
+
+  it("blocks symlink escape outside the project root", async () => {
+    const outside = await mkdtemp(path.join(os.tmpdir(), "engimcp-outside-"));
+    const outsideFile = path.join(outside, "external.md");
+    await writeFile(outsideFile, "# External\n", "utf8");
+    await symlink(outsideFile, path.join(tempRoot, "external.md"));
+
+    try {
+      await expect(resolveSafePath(tempRoot, "external.md")).rejects.toThrow(
+        "outside project root"
+      );
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+});

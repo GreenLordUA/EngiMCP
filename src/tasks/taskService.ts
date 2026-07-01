@@ -1,7 +1,8 @@
 import { writeAuditLog } from "../audit/auditLog.js";
 import { buildDocumentRegistry } from "../documents/documentService.js";
 import { serializeDocument } from "../documents/frontmatter.js";
-import { assertAbsoluteRoot, resolveInsideRoot } from "../project/pathSafety.js";
+import { assertAbsoluteRoot, resolveSafePath } from "../project/pathSafety.js";
+import { assertProjectWritable } from "../project/writeGuards.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { nextSequentialId, slugify } from "../utils/ids.js";
 
@@ -16,6 +17,7 @@ export interface CreateTaskInput {
 
 export async function createTask(input: CreateTaskInput) {
   const root = assertAbsoluteRoot(input.root);
+  await assertProjectWritable(root);
   const registry = await buildDocumentRegistry(root);
   const id = nextSequentialId(registry.byId.keys(), "TASK", 4);
   const relativePath = `docs/tasks/${id}-${slugify(input.title)}.md`;
@@ -53,7 +55,7 @@ Related: ${(input.related ?? []).join(", ")}
     return { id, path: relativePath, content };
   }
 
-  await atomicWrite(resolveInsideRoot(root, relativePath), content);
+  await atomicWrite(await resolveSafePath(root, relativePath), content);
   await writeAuditLog({
     root,
     tool: "engi_task_create",

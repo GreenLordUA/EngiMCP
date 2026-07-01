@@ -10,6 +10,13 @@ export interface EngiProjectConfig {
     schema_version?: string;
     source_of_truth?: string;
   };
+  mcp?: {
+    read_only_mode?: boolean;
+  };
+  security?: {
+    deny_patterns?: string[];
+    follow_symlinks?: boolean;
+  };
 }
 
 export async function readProjectConfig(root: string): Promise<EngiProjectConfig> {
