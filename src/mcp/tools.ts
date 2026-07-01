@@ -10,6 +10,9 @@ import { queryGraph } from "../graph/graphBuilder.js";
 import { analyzeImpact } from "../graph/impact.js";
 import { relationTypes } from "../graph/relations.js";
 import { getProjectMap, getProjectStatus } from "../project/projectService.js";
+import { createDecision } from "../decisions/decisionService.js";
+import { createRequirement } from "../requirements/requirementService.js";
+import { createTask } from "../tasks/taskService.js";
 import { validateProject } from "../validation/validator.js";
 
 const projectStatusInput = {
@@ -77,6 +80,39 @@ const impactAnalyzeInput = {
   changed_ids: z.array(z.string().min(1)).min(1),
   change_description: z.string().optional(),
   depth: z.number().int().positive().default(2)
+};
+
+const requirementCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  requirement_type: z.enum(["functional", "non_functional", "security", "acceptance"]),
+  title: z.string().min(1),
+  statement: z.string().min(1),
+  priority: z.enum(["must", "should", "could", "wont"]),
+  rationale: z.string().optional(),
+  related: z.array(z.string()).optional(),
+  dry_run: z.boolean().default(false)
+};
+
+const decisionCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  title: z.string().min(1),
+  status: z.enum(["proposed", "accepted", "deprecated", "superseded"]).default("proposed"),
+  context: z.string().min(1),
+  options: z.array(z.string()).min(1),
+  decision: z.string().min(1),
+  consequences: z.string().min(1),
+  related_requirements: z.array(z.string()).optional(),
+  impacts: z.array(z.string()).optional(),
+  dry_run: z.boolean().default(false)
+};
+
+const taskCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  title: z.string().min(1),
+  priority: z.enum(["low", "medium", "high"]).default("medium"),
+  related: z.array(z.string()).optional(),
+  due: z.string().nullable().optional(),
+  dry_run: z.boolean().default(false)
 };
 
 function textResult(value: unknown) {
@@ -171,6 +207,33 @@ export function registerTools(server: McpServer): void {
     impactAnalyzeInput,
     async (input) => {
       return textResult(await analyzeImpact(input));
+    }
+  );
+
+  server.tool(
+    "engi_requirement_create",
+    "Create a requirement document with the next typed requirement ID.",
+    requirementCreateInput,
+    async (input) => {
+      return textResult(await createRequirement(input));
+    }
+  );
+
+  server.tool(
+    "engi_decision_create",
+    "Create an Engineering Decision Record.",
+    decisionCreateInput,
+    async (input) => {
+      return textResult(await createDecision(input));
+    }
+  );
+
+  server.tool(
+    "engi_task_create",
+    "Create a project task document.",
+    taskCreateInput,
+    async (input) => {
+      return textResult(await createTask(input));
     }
   );
 }

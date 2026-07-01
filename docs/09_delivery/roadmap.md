@@ -95,6 +95,8 @@ Done when:
 
 ## Milestone 4 - Requirements, EDR, Tasks
 
+Status: complete.
+
 Goal: engineering entities.
 
 Tasks:
