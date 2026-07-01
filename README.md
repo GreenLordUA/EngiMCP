@@ -103,6 +103,7 @@ Milestone 2 adds safe write tools: `engi_doc_create`, `engi_frontmatter_patch`, 
 Milestone 3 adds graph and impact tools: `engi_graph_query` and `engi_impact_analyze`.
 Milestone 4 adds entity creation tools: `engi_requirement_create`, `engi_decision_create`, and
 `engi_task_create`.
+Milestone 5 adds `engi_context_pack` for compact task-specific context.
 
 ## License
 

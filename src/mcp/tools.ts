@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { buildContextPack } from "../context/contextPack.js";
 import {
   createDocument,
   patchDocumentFrontmatter,
@@ -113,6 +114,17 @@ const taskCreateInput = {
   related: z.array(z.string()).optional(),
   due: z.string().nullable().optional(),
   dry_run: z.boolean().default(false)
+};
+
+const contextPackInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  task: z.string().min(1),
+  seed_ids: z.array(z.string()).optional(),
+  max_tokens: z.number().int().positive().default(12000),
+  include_sections: z.boolean().default(true),
+  include_decisions: z.boolean().default(true),
+  include_open_tasks: z.boolean().default(true),
+  include_validation: z.boolean().default(true)
 };
 
 function textResult(value: unknown) {
@@ -234,6 +246,15 @@ export function registerTools(server: McpServer): void {
     taskCreateInput,
     async (input) => {
       return textResult(await createTask(input));
+    }
+  );
+
+  server.tool(
+    "engi_context_pack",
+    "Build compact task-specific context from project documents.",
+    contextPackInput,
+    async (input) => {
+      return textResult(await buildContextPack(input));
     }
   );
 }

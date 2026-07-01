@@ -114,6 +114,8 @@ Done when:
 
 ## Milestone 5 - Context Pack
 
+Status: complete.
+
 Goal: give the LLM relevant context.
 
 Tasks:
