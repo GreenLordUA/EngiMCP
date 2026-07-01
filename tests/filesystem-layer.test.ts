@@ -114,6 +114,24 @@ describe("project filesystem layer", () => {
     expect(existsSync(path.join(tempRoot, "docs/c.txt"))).toBe(false);
   });
 
+  it("reports duplicate IDs when copying managed documents", async () => {
+    await fsWrite({
+      root: tempRoot,
+      path: "docs/original.md",
+      content:
+        "---\nid: DOC-COPY-SOURCE\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Original\n"
+    });
+
+    const result = await fsCopy({
+      root: tempRoot,
+      source: "docs/original.md",
+      target: "docs/copy.md"
+    });
+
+    expect(result.validation?.errors.map((error) => error.code)).toContain("DUPLICATE_ID");
+    expect(result.index?.documents).toBe(2);
+  });
+
   it("updates safe path links when moving files with update_links", async () => {
     await fsWrite({
       root: tempRoot,

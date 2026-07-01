@@ -11,6 +11,7 @@ import { assertAbsoluteRoot, isDeniedPath, resolveSafePath } from "../project/pa
 import { assertProjectWritable } from "../project/writeGuards.js";
 import { rebuildIndex, type RebuildIndexResult } from "../storage/sqlite.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
+import { validateProject, type ValidateProjectResult } from "../validation/validator.js";
 
 export type FsEntryType = "file" | "dir" | "symlink" | "other";
 
@@ -384,6 +385,7 @@ export async function fsMove(input: FsMoveInput): Promise<{
 export async function fsCopy(input: FsCopyInput): Promise<{
   ok: boolean;
   copied: Array<{ from: string; to: string }>;
+  validation?: ValidateProjectResult;
   index?: RebuildIndexResult;
   audit_id?: string;
 }> {
@@ -417,7 +419,13 @@ export async function fsCopy(input: FsCopyInput): Promise<{
     diff_summary: "copied 1 path"
   });
 
-  return { ok: true, copied, index: await rebuildIndex(root), audit_id: auditId };
+  return {
+    ok: true,
+    copied,
+    validation: await validateProject({ root }),
+    index: await rebuildIndex(root),
+    audit_id: auditId
+  };
 }
 
 export async function fsDelete(input: FsDeleteInput): Promise<{
