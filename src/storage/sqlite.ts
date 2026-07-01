@@ -1,9 +1,12 @@
 import { access, mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import initSqlJs from "sql.js";
 import { buildDocumentRegistry } from "../documents/documentService.js";
 import { buildGraph } from "../graph/graphBuilder.js";
 import { validateProject } from "../validation/validator.js";
+
+const require = createRequire(import.meta.url);
 
 export interface RebuildIndexResult {
   ok: boolean;
@@ -33,7 +36,7 @@ export async function ensureIndex(root: string): Promise<EnsureIndexResult> {
 
 export async function rebuildIndex(root: string): Promise<RebuildIndexResult> {
   const SQL = await initSqlJs({
-    locateFile: (file) => path.join(process.cwd(), "node_modules/sql.js/dist", file)
+    locateFile: locateSqlJsFile
   });
   const registry = await buildDocumentRegistry(root);
   const graph = await buildGraph(root);
@@ -99,4 +102,8 @@ export async function rebuildIndex(root: string): Promise<RebuildIndexResult> {
     relations: graph.edges.length,
     validation_issues: validation.errors.length + validation.warnings.length
   };
+}
+
+export function locateSqlJsFile(file: string): string {
+  return require.resolve(`sql.js/dist/${file}`);
 }

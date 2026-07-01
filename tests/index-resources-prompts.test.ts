@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createServer } from "../src/server.js";
-import { rebuildIndex } from "../src/storage/sqlite.js";
+import { locateSqlJsFile, rebuildIndex } from "../src/storage/sqlite.js";
 import { validateProject } from "../src/validation/validator.js";
 
 const clients: Client[] = [];
@@ -21,7 +21,7 @@ describe("index resources prompts completion", () => {
     const result = await rebuildIndex(rcCarRoot);
     const indexPath = path.join(rcCarRoot, result.path);
     const SQL = await initSqlJs({
-      locateFile: (file) => path.join(process.cwd(), "node_modules/sql.js/dist", file)
+      locateFile: locateSqlJsFile
     });
     const db = new SQL.Database(readFileSync(indexPath));
     const count = db.exec("select count(*) as count from documents")[0]?.values[0]?.[0];
