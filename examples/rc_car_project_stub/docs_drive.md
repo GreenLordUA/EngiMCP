@@ -6,6 +6,8 @@ version: 0.1.0
 depends_on:
   - REQ-RC-CAR-V0
 impacts:
+  - DOC-RC-CAR-MOTORS
+  - DOC-RC-CAR-TRANSMISSION
   - DOC-RC-CAR-BATTERY
   - DOC-RC-CAR-BOM
 ---
@@ -18,4 +20,4 @@ impacts:
 
 ## Consequences
 
-Requires 4 motor drivers or 2 dual-channel drivers, radio-control integration, and wiring protection.
+Requires 4 motor drivers or 2 dual-channel drivers, radio-control integration, transmission packaging, and wiring protection.

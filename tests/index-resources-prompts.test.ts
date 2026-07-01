@@ -10,6 +10,7 @@ import { validateProject } from "../src/validation/validator.js";
 
 const clients: Client[] = [];
 const rcCarRoot = `${process.cwd()}/examples/rc_car_project_stub`;
+const fixturesRoot = `${process.cwd()}/tests/fixtures`;
 
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
@@ -26,8 +27,8 @@ describe("index resources prompts completion", () => {
     const count = db.exec("select count(*) as count from documents")[0]?.values[0]?.[0];
 
     expect(existsSync(indexPath)).toBe(true);
-    expect(result.documents).toBe(4);
-    expect(count).toBe(4);
+    expect(result.documents).toBe(9);
+    expect(count).toBe(9);
     db.close();
   });
 
@@ -82,7 +83,7 @@ describe("index resources prompts completion", () => {
   });
 
   it("reports requirement verification warnings", async () => {
-    const result = await validateProject({ root: rcCarRoot });
+    const result = await validateProject({ root: `${fixturesRoot}/rc-car-mini-project` });
 
     expect(result.warnings.map((warning) => warning.code)).toContain("REQUIREMENT_WITHOUT_TESTS");
   });

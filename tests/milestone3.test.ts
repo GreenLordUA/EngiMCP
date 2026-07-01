@@ -41,6 +41,24 @@ describe("milestone 3 graph and impact", () => {
     expect(result.recommended_actions).toContain("run_validation");
   });
 
+  it("covers the battery-change impact acceptance scenario", async () => {
+    const result = await analyzeImpact({
+      root: rcCarRoot,
+      changed_ids: ["DOC-RC-CAR-BATTERY"],
+      depth: 2
+    });
+
+    expect(result.impact.map((item) => item.id)).toEqual(
+      expect.arrayContaining([
+        "DOC-RC-CAR-POWER",
+        "DOC-RC-CAR-BOM",
+        "REQ-RC-CAR-V0",
+        "TEST-RC-CAR-RUNTIME",
+        "EDR-RC-CAR-0001"
+      ])
+    );
+  });
+
   it("reports dependency cycles during validation", async () => {
     const result = await validateProject({ root: `${fixturesRoot}/dependency-cycle-project` });
 

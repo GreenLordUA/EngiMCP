@@ -20,8 +20,30 @@ describe("milestone 5 context pack", () => {
     expect(pack.items.find((item) => item.id === "DOC-RC-CAR-BATTERY")?.reason).toBe(
       "seed document"
     );
-    expect(pack.warnings).toEqual(
-      expect.arrayContaining(["REQUIREMENT_WITHOUT_TESTS: Requirement REQ-RC-CAR-V0 has no tests"])
+    expect(pack.warnings).toEqual([]);
+  });
+
+  it("covers the motor-change acceptance scenario from task terms", async () => {
+    const pack = await buildContextPack({
+      root: rcCarRoot,
+      task: "we are changing the project motors",
+      max_tokens: 12000,
+      include_validation: false
+    });
+
+    expect(pack.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([
+        "REQ-RC-CAR-V0",
+        "DOC-RC-CAR-MOTORS",
+        "DOC-RC-CAR-BATTERY",
+        "DOC-RC-CAR-TRANSMISSION",
+        "DOC-RC-CAR-POWER",
+        "DOC-RC-CAR-BOM",
+        "EDR-RC-CAR-0001"
+      ])
+    );
+    expect(pack.items.find((item) => item.id === "DOC-RC-CAR-BOM")?.reason).toContain(
+      "graph neighbor"
     );
   });
 

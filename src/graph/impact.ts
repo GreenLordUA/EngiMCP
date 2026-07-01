@@ -67,6 +67,9 @@ function impactEdges(edges: GraphEdge[], id: string): GraphEdge[] {
     if (edge.relation_type === "impacts" && edge.source_id === id) {
       return true;
     }
+    if (edge.relation_type === "impacts" && edge.target_id === id) {
+      return true;
+    }
     if (edge.relation_type === "depends_on" && edge.target_id === id) {
       return true;
     }

@@ -72,6 +72,21 @@ export async function buildContextPack(input: ContextPackInput): Promise<Context
     }
   }
 
+  const matchedTaskDocuments = registry.documents.filter(
+    (document) => document.id && reasons.get(document.path) === "matched task terms"
+  );
+  for (const document of matchedTaskDocuments) {
+    const graph = await queryGraph({ root, id: document.id ?? "", direction: "both", depth: 1 });
+    for (const node of graph.nodes) {
+      const neighbor = registry.byId.get(node.id);
+      if (neighbor && !reasons.has(neighbor.path)) {
+        reasons.set(neighbor.path, `graph neighbor of ${document.id}`);
+      } else if (neighbor && reasons.get(neighbor.path) === "matched task terms") {
+        reasons.set(neighbor.path, `matched task terms; graph neighbor of ${document.id}`);
+      }
+    }
+  }
+
   const items: ContextPackItem[] = [];
   let estimatedTokens = 0;
 
