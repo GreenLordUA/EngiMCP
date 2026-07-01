@@ -52,6 +52,8 @@ Done when:
 
 ## Milestone 2 - Safe Writes
 
+Status: complete.
+
 Goal: modify documents safely.
 
 Tasks:

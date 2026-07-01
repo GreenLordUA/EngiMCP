@@ -1,6 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { readDocument } from "../documents/documentService.js";
+import {
+  createDocument,
+  patchDocumentFrontmatter,
+  patchDocumentSection,
+  readDocument
+} from "../documents/documentService.js";
 import { getProjectMap, getProjectStatus } from "../project/projectService.js";
 import { validateProject } from "../validation/validator.js";
 
@@ -21,6 +26,33 @@ const docReadInput = {
   id: z.string().nullable().optional(),
   path: z.string().nullable().optional(),
   mode: z.enum(["full", "summary", "frontmatter", "headings", "section"]).default("full")
+};
+
+const docCreateInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  kind: z.string().min(1),
+  id: z.string().min(1),
+  title: z.string().min(1),
+  path: z.string().min(1),
+  template: z.string().default("design_doc"),
+  frontmatter: z.record(z.string(), z.unknown()).optional(),
+  dry_run: z.boolean().default(false)
+};
+
+const frontmatterPatchInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  patch: z.record(z.string(), z.unknown()),
+  dry_run: z.boolean().default(false)
+};
+
+const docPatchSectionInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  heading_path: z.array(z.string().min(1)).min(1),
+  operation: z.enum(["replace", "append", "prepend", "insert_after"]).default("replace"),
+  content: z.string(),
+  dry_run: z.boolean().default(false)
 };
 
 const validateProjectInput = {
@@ -67,6 +99,33 @@ export function registerTools(server: McpServer): void {
     docReadInput,
     async (input) => {
       return textResult(await readDocument(input.root, input));
+    }
+  );
+
+  server.tool(
+    "engi_doc_create",
+    "Create a Markdown document from a template.",
+    docCreateInput,
+    async (input) => {
+      return textResult(await createDocument(input));
+    }
+  );
+
+  server.tool(
+    "engi_frontmatter_patch",
+    "Patch YAML frontmatter for a managed document.",
+    frontmatterPatchInput,
+    async (input) => {
+      return textResult(await patchDocumentFrontmatter(input));
+    }
+  );
+
+  server.tool(
+    "engi_doc_patch_section",
+    "Patch a Markdown section by heading path.",
+    docPatchSectionInput,
+    async (input) => {
+      return textResult(await patchDocumentSection(input));
     }
   );
 

@@ -1,9 +1,13 @@
-import { readdir, readFile } from "node:fs/promises";
+import { access, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { parseFrontmatter } from "./frontmatter.js";
-import { parseHeadings, type Heading } from "./headings.js";
-import { resolveInsideRoot } from "../project/pathSafety.js";
+import { writeAuditLog } from "../audit/auditLog.js";
 import { EngiMcpError } from "../mcp/errors.js";
+import { resolveInsideRoot } from "../project/pathSafety.js";
+import { atomicWrite } from "../utils/atomicWrite.js";
+import { parseFrontmatter, serializeDocument } from "./frontmatter.js";
+import { parseHeadings, type Heading } from "./headings.js";
+import { patchSection, type SectionPatchOperation } from "./sectionPatch.js";
+import { loadTemplate } from "./templates.js";
 
 export interface ManagedDocument {
   id?: string;
@@ -38,6 +42,43 @@ export interface DocumentReadResult {
   content?: string;
   headings?: string[];
   links: string[];
+}
+
+export interface DocumentWriteResult {
+  ok: boolean;
+  changed: boolean;
+  path: string;
+  id?: string;
+  diff_summary: string;
+  audit_id?: string;
+  content?: string;
+}
+
+export interface DocumentCreateInput {
+  root: string;
+  kind: string;
+  id: string;
+  title: string;
+  path: string;
+  template: string;
+  frontmatter?: Record<string, unknown>;
+  dry_run?: boolean;
+}
+
+export interface FrontmatterPatchInput {
+  root: string;
+  id: string;
+  patch: Record<string, unknown>;
+  dry_run?: boolean;
+}
+
+export interface DocumentSectionPatchInput {
+  root: string;
+  id: string;
+  heading_path: string[];
+  operation: SectionPatchOperation;
+  content: string;
+  dry_run?: boolean;
 }
 
 const ignoredDirectories = new Set([".git", ".engimcp", "node_modules", "dist"]);
@@ -160,6 +201,159 @@ export async function readDocument(
   };
 }
 
+export async function createDocument(input: DocumentCreateInput): Promise<DocumentWriteResult> {
+  const root = path.resolve(input.root);
+  const targetPath = resolveInsideRoot(root, input.path);
+  const templateContent = await loadTemplate(root, input.template, input.kind);
+  const parsed = parseFrontmatter(templateContent);
+  const frontmatter = {
+    ...(parsed.data ?? {}),
+    ...(input.frontmatter ?? {}),
+    id: input.id,
+    kind: input.kind
+  };
+  const body = parsed.body.replace(/^# .*(?:\r?\n|$)/, `# ${input.title}\n`);
+  const content = serializeDocument(frontmatter, body);
+
+  try {
+    await access(targetPath);
+    throw new EngiMcpError("DOCUMENT_EXISTS", `Document already exists: ${input.path}`);
+  } catch (error) {
+    if (error instanceof EngiMcpError) {
+      throw error;
+    }
+  }
+
+  if (input.dry_run) {
+    return {
+      ok: true,
+      changed: true,
+      path: input.path,
+      id: input.id,
+      diff_summary: "dry run: document would be created",
+      content
+    };
+  }
+
+  await atomicWrite(targetPath, content);
+  const auditId = await writeAuditLog({
+    root,
+    tool: "engi_doc_create",
+    target: input.id,
+    operation: "create",
+    result: "ok",
+    diff_summary: "document created"
+  });
+
+  return {
+    ok: true,
+    changed: true,
+    path: input.path,
+    id: input.id,
+    diff_summary: "document created",
+    audit_id: auditId
+  };
+}
+
+export async function patchDocumentFrontmatter(
+  input: FrontmatterPatchInput
+): Promise<DocumentWriteResult> {
+  const root = path.resolve(input.root);
+  const registry = await buildDocumentRegistry(root);
+  const document = resolveDocument(registry, { id: input.id });
+  const original = await readFile(document.absolutePath, "utf8");
+  const parsed = parseFrontmatter(original);
+
+  if (parsed.error) {
+    throw new EngiMcpError("BROKEN_FRONTMATTER", parsed.error);
+  }
+
+  const nextContent = serializeDocument({ ...(parsed.data ?? {}), ...input.patch }, parsed.body);
+  const diffSummary = summarizeLineDiff(original, nextContent);
+
+  if (input.dry_run) {
+    return {
+      ok: true,
+      changed: nextContent !== original,
+      path: document.path,
+      id: document.id,
+      diff_summary: diffSummary,
+      content: nextContent
+    };
+  }
+
+  await atomicWrite(document.absolutePath, nextContent);
+  const auditId = await writeAuditLog({
+    root,
+    tool: "engi_frontmatter_patch",
+    target: input.id,
+    operation: "frontmatter_patch",
+    result: "ok",
+    diff_summary: diffSummary
+  });
+
+  return {
+    ok: true,
+    changed: nextContent !== original,
+    path: document.path,
+    id: document.id,
+    diff_summary: diffSummary,
+    audit_id: auditId
+  };
+}
+
+export async function patchDocumentSection(
+  input: DocumentSectionPatchInput
+): Promise<DocumentWriteResult> {
+  const root = path.resolve(input.root);
+  const registry = await buildDocumentRegistry(root);
+  const document = resolveDocument(registry, { id: input.id });
+  const original = await readFile(document.absolutePath, "utf8");
+  const parsed = parseFrontmatter(original);
+
+  if (parsed.error) {
+    throw new EngiMcpError("BROKEN_FRONTMATTER", parsed.error);
+  }
+
+  const nextBody = patchSection(parsed.body, {
+    headingPath: input.heading_path,
+    operation: input.operation,
+    content: input.content
+  });
+  const nextContent = serializeDocument(parsed.data ?? {}, nextBody);
+  const diffSummary = summarizeLineDiff(original, nextContent);
+
+  if (input.dry_run) {
+    return {
+      ok: true,
+      changed: nextContent !== original,
+      path: document.path,
+      id: document.id,
+      diff_summary: diffSummary,
+      content: nextContent
+    };
+  }
+
+  await atomicWrite(document.absolutePath, nextContent);
+  const auditId = await writeAuditLog({
+    root,
+    tool: "engi_doc_patch_section",
+    target: input.id,
+    operation: input.operation,
+    result: "ok",
+    diff_summary: diffSummary
+  });
+
+  return {
+    ok: true,
+    changed: nextContent !== original,
+    path: document.path,
+    id: document.id,
+    diff_summary: diffSummary,
+    audit_id: auditId
+  };
+}
+
 export function extractFrontmatterLinks(frontmatter: Record<string, unknown>): string[] {
   return relationFields.flatMap((field) => {
     const value = frontmatter[field];
@@ -202,4 +396,16 @@ function firstParagraph(markdown: string): string {
       .map((part) => part.trim())
       .find((part) => part.length > 0 && !part.startsWith("#")) ?? ""
   );
+}
+
+function summarizeLineDiff(before: string, after: string): string {
+  if (before === after) {
+    return "no changes";
+  }
+
+  const beforeLineCount = before.split(/\r?\n/).length;
+  const afterLineCount = after.split(/\r?\n/).length;
+  const delta = afterLineCount - beforeLineCount;
+
+  return delta === 0 ? "content changed" : `${Math.abs(delta)} line count delta`;
 }

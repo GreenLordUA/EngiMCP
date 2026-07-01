@@ -98,6 +98,8 @@ npm run dev
 
 The current server exposes read-only Milestone 1 tools over MCP stdio:
 `engi_project_status`, `engi_project_map`, `engi_doc_read`, and `engi_validate_project`.
+Milestone 2 adds safe write tools: `engi_doc_create`, `engi_frontmatter_patch`, and
+`engi_doc_patch_section`.
 
 ## License
 

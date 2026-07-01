@@ -1,4 +1,5 @@
 import { parse } from "yaml";
+import { stringify } from "yaml";
 
 export interface FrontmatterData {
   id?: string;
@@ -39,4 +40,8 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
       error: error instanceof Error ? error.message : String(error)
     };
   }
+}
+
+export function serializeDocument(frontmatter: Record<string, unknown>, body: string): string {
+  return `---\n${stringify(frontmatter).trimEnd()}\n---\n\n${body.trimStart()}`;
 }
