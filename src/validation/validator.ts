@@ -1,4 +1,5 @@
 import { buildDocumentRegistry, extractFrontmatterLinks } from "../documents/documentService.js";
+import { buildGraph, findDependencyCycles } from "../graph/graphBuilder.js";
 import { assertAbsoluteRoot } from "../project/pathSafety.js";
 
 export interface ValidationIssue {
@@ -77,6 +78,14 @@ export async function validateProject(input: ValidateProjectInput): Promise<Vali
         entity_id: id
       });
     }
+  }
+
+  const graph = await buildGraph(root);
+  for (const cycle of findDependencyCycles(graph)) {
+    warnings.push({
+      code: "DEPENDENCY_CYCLE",
+      message: `Dependency cycle detected: ${cycle.join(" -> ")}`
+    });
   }
 
   return {

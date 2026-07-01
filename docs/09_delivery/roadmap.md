@@ -75,6 +75,8 @@ Done when:
 
 ## Milestone 3 - Graph and Impact
 
+Status: complete.
+
 Goal: relationships and consequences.
 
 Tasks:

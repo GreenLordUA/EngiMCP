@@ -1,0 +1,4 @@
+project:
+  id: dependency-cycle-project
+  name: Dependency Cycle Fixture
+  source_of_truth: markdown

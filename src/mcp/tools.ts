@@ -6,6 +6,9 @@ import {
   patchDocumentSection,
   readDocument
 } from "../documents/documentService.js";
+import { queryGraph } from "../graph/graphBuilder.js";
+import { analyzeImpact } from "../graph/impact.js";
+import { relationTypes } from "../graph/relations.js";
 import { getProjectMap, getProjectStatus } from "../project/projectService.js";
 import { validateProject } from "../validation/validator.js";
 
@@ -59,6 +62,21 @@ const validateProjectInput = {
   root: z.string().min(1).describe("Absolute path to the project root."),
   checks: z.array(z.string()).optional(),
   severity: z.enum(["error", "warning"]).default("warning")
+};
+
+const graphQueryInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  id: z.string().min(1),
+  direction: z.enum(["outgoing", "incoming", "both"]).default("both"),
+  depth: z.number().int().positive().default(1),
+  relation_types: z.array(z.enum(relationTypes)).optional()
+};
+
+const impactAnalyzeInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  changed_ids: z.array(z.string().min(1)).min(1),
+  change_description: z.string().optional(),
+  depth: z.number().int().positive().default(2)
 };
 
 function textResult(value: unknown) {
@@ -135,6 +153,24 @@ export function registerTools(server: McpServer): void {
     validateProjectInput,
     async (input) => {
       return textResult(await validateProject(input));
+    }
+  );
+
+  server.tool(
+    "engi_graph_query",
+    "Return graph neighbors for a document or entity.",
+    graphQueryInput,
+    async (input) => {
+      return textResult(await queryGraph(input));
+    }
+  );
+
+  server.tool(
+    "engi_impact_analyze",
+    "Analyze transitive document impact for changed IDs.",
+    impactAnalyzeInput,
+    async (input) => {
+      return textResult(await analyzeImpact(input));
     }
   );
 }
