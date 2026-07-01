@@ -3,7 +3,7 @@ import path from "node:path";
 import { writeAuditLog } from "../audit/auditLog.js";
 import { EngiMcpError } from "../mcp/errors.js";
 import { isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
-import { assertProjectWritable } from "../project/writeGuards.js";
+import { assertNoGitConflictMarkers, assertProjectWritable } from "../project/writeGuards.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { parseFrontmatter, serializeDocument } from "./frontmatter.js";
 import { parseHeadings, type Heading } from "./headings.js";
@@ -284,6 +284,7 @@ export async function patchDocumentFrontmatter(
   const registry = await buildDocumentRegistry(root);
   const document = resolveDocument(registry, { id: input.id });
   const original = await readFile(document.absolutePath, "utf8");
+  assertNoGitConflictMarkers(original, document.path);
   const parsed = parseFrontmatter(original);
 
   if (parsed.error) {
@@ -332,6 +333,7 @@ export async function patchDocumentSection(
   const registry = await buildDocumentRegistry(root);
   const document = resolveDocument(registry, { id: input.id });
   const original = await readFile(document.absolutePath, "utf8");
+  assertNoGitConflictMarkers(original, document.path);
   const parsed = parseFrontmatter(original);
 
   if (parsed.error) {

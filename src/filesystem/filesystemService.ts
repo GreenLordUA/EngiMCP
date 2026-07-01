@@ -8,7 +8,11 @@ import { parseFrontmatter } from "../documents/frontmatter.js";
 import { buildGraph } from "../graph/graphBuilder.js";
 import { EngiMcpError } from "../mcp/errors.js";
 import { assertAbsoluteRoot, isDeniedPathForRoot, resolveSafePath } from "../project/pathSafety.js";
-import { assertProjectWritable } from "../project/writeGuards.js";
+import {
+  assertNoGitConflictMarkers,
+  assertPathHasNoGitConflictMarkers,
+  assertProjectWritable
+} from "../project/writeGuards.js";
 import { rebuildIndex, type RebuildIndexResult } from "../storage/sqlite.js";
 import { atomicWrite } from "../utils/atomicWrite.js";
 import { validateProject, type ValidateProjectResult } from "../validation/validator.js";
@@ -254,6 +258,9 @@ export async function fsWrite(input: FsWriteInput): Promise<{
   }
 
   const before = exists ? await readFile(absolutePath, "utf8") : "";
+  if (exists) {
+    assertNoGitConflictMarkers(before, normalizeRelative(root, absolutePath));
+  }
   const nextContent = mode === "append" ? `${before}${input.content}` : input.content;
   validateManagedMarkdown(nextContent, input.path);
   const diffSummary = summarizeContentChange(before, nextContent, exists);
@@ -341,6 +348,9 @@ export async function fsMove(input: FsMoveInput): Promise<{
   const targetPath = await resolveSafePath(root, input.target);
   await ensureExists(sourcePath, input.source);
   await ensureTargetPolicy(targetPath, input.target, input.overwrite ?? false);
+  if (input.overwrite) {
+    await assertPathHasNoGitConflictMarkers(targetPath, normalizeRelative(root, targetPath));
+  }
   const warnings = await managedDocumentWarnings(root, sourcePath);
   const moved = [
     { from: normalizeRelative(root, sourcePath), to: normalizeRelative(root, targetPath) }
@@ -395,6 +405,9 @@ export async function fsCopy(input: FsCopyInput): Promise<{
   const targetPath = await resolveSafePath(root, input.target);
   await ensureExists(sourcePath, input.source);
   await ensureTargetPolicy(targetPath, input.target, input.overwrite ?? false);
+  if (input.overwrite) {
+    await assertPathHasNoGitConflictMarkers(targetPath, normalizeRelative(root, targetPath));
+  }
   await assertNoDeniedDescendants(root, sourcePath);
   const copied = [
     { from: normalizeRelative(root, sourcePath), to: normalizeRelative(root, targetPath) }
@@ -703,6 +716,7 @@ async function updateMovedPathLinks(
 
     changedPaths.push(document.path);
     if (!dryRun) {
+      assertNoGitConflictMarkers(content, document.path);
       await atomicWrite(document.absolutePath, nextContent);
     }
   }

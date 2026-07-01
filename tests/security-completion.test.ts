@@ -2,7 +2,12 @@ import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createDocument, discoverMarkdownDocuments } from "../src/documents/documentService.js";
+import {
+  createDocument,
+  discoverMarkdownDocuments,
+  patchDocumentSection
+} from "../src/documents/documentService.js";
+import { fsWrite } from "../src/filesystem/filesystemService.js";
 import { resolveSafePath } from "../src/project/pathSafety.js";
 import { createRequirement } from "../src/requirements/requirementService.js";
 import { configureRuntimeOptions, parseRuntimeOptions } from "../src/runtime/options.js";
@@ -76,6 +81,37 @@ describe("security completion", () => {
     ).rejects.toThrow("denied");
 
     expect(documents.map((document) => document.id)).not.toContain("DOC-PRIVATE");
+  });
+
+  it("refuses to overwrite files with Git conflict markers", async () => {
+    await writeFile(
+      path.join(tempRoot, "docs-conflict.md"),
+      "---\nid: DOC-CONFLICT\nkind: design_doc\nstatus: draft\nversion: 0.1.0\n---\n\n# Conflict\n\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\n",
+      "utf8"
+    );
+    await writeFile(
+      path.join(tempRoot, "ordinary.txt"),
+      "<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\n",
+      "utf8"
+    );
+
+    await expect(
+      patchDocumentSection({
+        root: tempRoot,
+        id: "DOC-CONFLICT",
+        heading_path: ["Conflict"],
+        operation: "append",
+        content: "updated\n"
+      })
+    ).rejects.toThrow("Git conflict markers");
+    await expect(
+      fsWrite({
+        root: tempRoot,
+        path: "ordinary.txt",
+        content: "updated\n",
+        mode: "overwrite"
+      })
+    ).rejects.toThrow("Git conflict markers");
   });
 
   it("blocks symlink escape outside the project root", async () => {
