@@ -96,7 +96,8 @@ npm run smoke
 npm run dev
 ```
 
-The current skeleton exposes a mock `engi_project_status` over MCP stdio.
+The current server exposes read-only Milestone 1 tools over MCP stdio:
+`engi_project_status`, `engi_project_map`, `engi_doc_read`, and `engi_validate_project`.
 
 ## License
 

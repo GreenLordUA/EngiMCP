@@ -1,0 +1,4 @@
+project:
+  id: duplicate-id-project
+  name: Duplicate ID Fixture
+  source_of_truth: markdown

@@ -30,7 +30,14 @@ describe("milestone 0 server skeleton", () => {
 
     const tools = await client.listTools();
 
-    expect(tools.tools.map((tool) => tool.name)).toContain("engi_project_status");
+    expect(tools.tools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining([
+        "engi_project_status",
+        "engi_project_map",
+        "engi_doc_read",
+        "engi_validate_project"
+      ])
+    );
   });
 
   it("returns a mock project status through the MCP tool", async () => {
@@ -45,9 +52,9 @@ describe("milestone 0 server skeleton", () => {
     const result = await client.callTool({
       name: "engi_project_status",
       arguments: {
-        root: process.cwd(),
+        root: path.join(process.cwd(), "tests/fixtures/rc-car-mini-project"),
         include_validation_summary: true,
-        include_git_status: true
+        include_git_status: false
       }
     });
 
@@ -59,16 +66,14 @@ describe("milestone 0 server skeleton", () => {
     }
 
     expect(JSON.parse(content.text)).toMatchObject({
-      documents: 0,
-      requirements: 0,
+      project_id: "rc-car-mini",
+      documents: 1,
+      requirements: 1,
       decisions: 0,
       tasks_open: 0,
       validation: {
         errors: 0,
-        warnings: 0
-      },
-      git: {
-        summary: "mock"
+        warnings: 1
       }
     });
   });

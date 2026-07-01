@@ -1,0 +1,4 @@
+project:
+  id: broken-frontmatter-project
+  name: Broken Frontmatter Fixture
+  source_of_truth: markdown

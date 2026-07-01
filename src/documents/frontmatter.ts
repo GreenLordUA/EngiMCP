@@ -19,16 +19,16 @@ export function parseFrontmatter(content: string): ParsedFrontmatter {
     return { body: content };
   }
 
-  const end = content.indexOf("\n---", 4);
-  if (end === -1) {
+  const closingDelimiter = content.match(/\n---\s*(?:\r?\n|$)/);
+  if (!closingDelimiter?.index) {
     return {
       body: content,
       error: "Missing closing frontmatter delimiter."
     };
   }
 
-  const raw = content.slice(4, end);
-  const body = content.slice(end + 4).replace(/^\r?\n/, "");
+  const raw = content.slice(4, closingDelimiter.index);
+  const body = content.slice(closingDelimiter.index + closingDelimiter[0].length);
 
   try {
     const parsed = parse(raw) as FrontmatterData | null;

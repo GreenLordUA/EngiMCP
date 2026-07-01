@@ -29,6 +29,8 @@ Done when:
 
 ## Milestone 1 - Markdown Project Core
 
+Status: complete.
+
 Goal: read and index the project.
 
 Tasks:
