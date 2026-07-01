@@ -25,6 +25,8 @@ Core principle: **documentation is the source of truth**. Code must match requir
   - acceptance criteria.
 - Every new entity must be described in `entities_and_schema.md`.
 - Every write function must be atomic and safe.
+- Filesystem tools (`engi_fs_*`) must stay root-jailed to `project_root`, reject symlink escape, respect deny patterns, enforce read-only mode, and write audit logs for write/move/copy/delete/mkdir.
+- Use `engi_doc_*` semantics for managed engineering documents and `engi_fs_*` semantics only for ordinary file/folder operations.
 
 ## Style
 

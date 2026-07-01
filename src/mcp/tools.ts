@@ -10,6 +10,19 @@ import {
   patchDocumentSection,
   readDocument
 } from "../documents/documentService.js";
+import {
+  fsCopy,
+  fsDelete,
+  fsExists,
+  fsGlob,
+  fsList,
+  fsMkdir,
+  fsMove,
+  fsRead,
+  fsStat,
+  fsTree,
+  fsWrite
+} from "../filesystem/filesystemService.js";
 import { queryGraph } from "../graph/graphBuilder.js";
 import { analyzeImpact } from "../graph/impact.js";
 import { relationTypes } from "../graph/relations.js";
@@ -199,6 +212,92 @@ const bomItemCreateInput = {
   currency: z.string().optional(),
   related: z.array(z.string().min(1)).optional(),
   dry_run: z.boolean().default(false)
+};
+
+const fsTreeInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().default("."),
+  max_depth: z.number().int().positive().default(4),
+  include_files: z.boolean().default(true),
+  include_dirs: z.boolean().default(true),
+  respect_deny_patterns: z.boolean().default(true)
+};
+
+const fsListInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().default("."),
+  recursive: z.boolean().default(false),
+  include_hidden: z.boolean().default(false)
+};
+
+const fsReadInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1),
+  encoding: z.enum(["utf-8"]).default("utf-8"),
+  max_bytes: z.number().int().positive().default(200000),
+  mode: z.enum(["full", "head", "tail", "range", "metadata_only"]).default("full"),
+  offset: z.number().int().nonnegative().optional(),
+  length: z.number().int().positive().optional()
+};
+
+const fsWriteInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1),
+  content: z.string(),
+  mode: z.enum(["create_new", "overwrite", "append"]).default("create_new"),
+  create_dirs: z.boolean().default(true),
+  dry_run: z.boolean().default(false)
+};
+
+const fsMkdirInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1),
+  parents: z.boolean().default(true),
+  dry_run: z.boolean().default(false)
+};
+
+const fsMoveInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  source: z.string().min(1),
+  target: z.string().min(1),
+  update_links: z.boolean().default(false),
+  overwrite: z.boolean().default(false),
+  dry_run: z.boolean().default(false)
+};
+
+const fsCopyInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  source: z.string().min(1),
+  target: z.string().min(1),
+  overwrite: z.boolean().default(false),
+  dry_run: z.boolean().default(false)
+};
+
+const fsDeleteInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1),
+  mode: z.enum(["trash"]).default("trash"),
+  recursive: z.boolean().default(false),
+  dry_run: z.boolean().default(false),
+  reason: z.string().optional(),
+  force: z.boolean().default(false)
+};
+
+const fsExistsInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1)
+};
+
+const fsStatInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  path: z.string().min(1)
+};
+
+const fsGlobInput = {
+  root: z.string().min(1).describe("Absolute path to the project root."),
+  patterns: z.array(z.string().min(1)).min(1),
+  exclude: z.array(z.string().min(1)).optional(),
+  limit: z.number().int().positive().default(200)
 };
 
 function textResult(value: unknown) {
@@ -414,6 +513,90 @@ export function registerTools(server: McpServer): void {
     bomItemCreateInput,
     async (input) => {
       return textResult(await createBomItem(input));
+    }
+  );
+
+  server.tool("engi_fs_tree", "Return a bounded safe project tree.", fsTreeInput, async (input) => {
+    return textResult(await fsTree(input));
+  });
+
+  server.tool("engi_fs_list", "List a project directory safely.", fsListInput, async (input) => {
+    return textResult(await fsList(input));
+  });
+
+  server.tool(
+    "engi_fs_read",
+    "Read an ordinary project file safely.",
+    fsReadInput,
+    async (input) => {
+      return textResult(await fsRead(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_write",
+    "Create, overwrite, or append an ordinary project file.",
+    fsWriteInput,
+    async (input) => {
+      return textResult(await fsWrite(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_mkdir",
+    "Create a project directory safely.",
+    fsMkdirInput,
+    async (input) => {
+      return textResult(await fsMkdir(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_move",
+    "Move or rename a project file or directory safely.",
+    fsMoveInput,
+    async (input) => {
+      return textResult(await fsMove(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_copy",
+    "Copy a project file or directory safely.",
+    fsCopyInput,
+    async (input) => {
+      return textResult(await fsCopy(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_delete",
+    "Move a project file or directory to project trash.",
+    fsDeleteInput,
+    async (input) => {
+      return textResult(await fsDelete(input));
+    }
+  );
+
+  server.tool(
+    "engi_fs_exists",
+    "Check whether a project path exists.",
+    fsExistsInput,
+    async (input) => {
+      return textResult(await fsExists(input));
+    }
+  );
+
+  server.tool("engi_fs_stat", "Return project path metadata.", fsStatInput, async (input) => {
+    return textResult(await fsStat(input));
+  });
+
+  server.tool(
+    "engi_fs_glob",
+    "Find project files by safe glob patterns.",
+    fsGlobInput,
+    async (input) => {
+      return textResult(await fsGlob(input));
     }
   );
 }

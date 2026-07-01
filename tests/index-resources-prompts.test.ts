@@ -64,7 +64,18 @@ describe("index resources prompts completion", () => {
         "engi_test_report_create",
         "engi_bom_item_create",
         "engi_project_snapshot",
-        "engi_git_commit"
+        "engi_git_commit",
+        "engi_fs_tree",
+        "engi_fs_list",
+        "engi_fs_read",
+        "engi_fs_write",
+        "engi_fs_mkdir",
+        "engi_fs_move",
+        "engi_fs_copy",
+        "engi_fs_delete",
+        "engi_fs_exists",
+        "engi_fs_stat",
+        "engi_fs_glob"
       ])
     );
   });

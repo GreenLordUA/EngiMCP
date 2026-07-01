@@ -40,8 +40,11 @@ deny_patterns:
   - "**/.git/**"
   - "**/node_modules/**"
   - "**/.engimcp/index.sqlite"
+  - "**/.engimcp/cache/**"
   - "**/*secret*"
   - "**/*private*"
+  - "**/*.pem"
+  - "**/*.key"
 ```
 
 Deny patterns must be configurable, but safe defaults are mandatory.
@@ -55,6 +58,57 @@ engimcp --root ~/Work/Projects/RC-Car --read-only
 ```
 
 In read-only mode, all write tools return an error.
+
+## Filesystem Tool Safety
+
+The filesystem layer is a controlled project API, not a raw filesystem MCP and not shell access.
+
+Allowed filesystem operations in the MVP:
+
+```text
+list/tree/stat/exists
+read bounded text files
+create ordinary files
+create directories
+move/rename files or folders
+copy files or folders
+delete to project trash
+```
+
+Forbidden in the MVP:
+
+```text
+arbitrary shell execution
+chmod/chown
+network filesystem operations
+permanent delete by default
+binary patching
+following symlink escape outside root
+```
+
+### Project Trash
+
+`engi_fs_delete` defaults to trash mode. It moves the path to:
+
+```text
+.engimcp/trash/YYYY-MM-DD/<original-path>
+```
+
+Permanent delete is out of scope for the MVP. Before deleting a managed Markdown document, the server must check incoming links and reject the operation unless `force=true`.
+
+### Filesystem Audit
+
+Audit log entries are required for:
+
+```text
+engi_fs_write
+engi_fs_mkdir
+engi_fs_move
+engi_fs_copy
+engi_fs_delete
+```
+
+Each entry should include the tool, source/target path, operation, result, and summary.
 
 ## Write Safety
 

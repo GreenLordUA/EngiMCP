@@ -31,6 +31,12 @@ depends_on:
 | AC-010 | Run `impact_analyze` for a document. | A list of direct and transitive dependencies is returned with reasons. |
 | AC-011 | Start read-only mode and try to run a write tool. | The operation is rejected. |
 | AC-012 | Check the audit log after a write operation. | The log contains timestamp, tool, target, and diff summary. |
+| AC-013 | Call `engi_fs_tree` on a project containing `.git`, `.env`, and cache paths. | Denied paths are excluded. |
+| AC-014 | Call `engi_fs_write` with `mode="create_new"`. | A new ordinary file is created; a repeated call fails with `ALREADY_EXISTS`. |
+| AC-015 | Call `engi_fs_mkdir`. | The directory is created inside root and audit log is written. |
+| AC-016 | Call `engi_fs_delete` with default settings. | The target is moved to `.engimcp/trash/YYYY-MM-DD/<original-path>`. |
+| AC-017 | Try path traversal or symlink escape through an `engi_fs_*` tool. | The operation is rejected. |
+| AC-018 | Delete a managed document with incoming links. | The operation is rejected unless `force=true`. |
 
 ## MVP-B: LLM Usefulness Acceptance
 
@@ -59,7 +65,9 @@ depends_on:
 The MVP is not accepted if:
 
 - a write operation can escape the project root;
+- a filesystem operation can escape the project root;
 - a tool can accidentally rewrite a whole file without diff/backup;
+- delete permanently removes files by default instead of using project trash;
 - the project cannot be recovered after deleting the index;
 - write operations have no tests;
 - ID and broken-link validation is missing;

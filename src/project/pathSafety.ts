@@ -37,20 +37,7 @@ export async function resolveSafePath(
     throw new EngiMcpError("PATH_DENIED", `Path is denied by project safety rules: ${relative}`);
   }
 
-  try {
-    const stat = await lstat(target);
-    if (stat.isSymbolicLink()) {
-      const realTarget = await realpath(target);
-      const realRoot = await realpath(resolvedRoot);
-      if (!isPathInsideRoot(realRoot, realTarget)) {
-        throw new EngiMcpError("SYMLINK_OUTSIDE_ROOT", "Symlink points outside project root.");
-      }
-    }
-  } catch (error) {
-    if (error instanceof EngiMcpError) {
-      throw error;
-    }
-  }
+  await assertRealPathInsideRoot(resolvedRoot, target);
 
   return target;
 }
@@ -65,8 +52,46 @@ export function isDeniedPath(relativePath: string): boolean {
     segments.includes(".ssh") ||
     segments.includes("node_modules") ||
     normalized === ".engimcp/index.sqlite" ||
+    normalized.startsWith(".engimcp/cache/") ||
     basename === ".env" ||
+    basename.endsWith(".pem") ||
+    basename.endsWith(".key") ||
     normalized.toLowerCase().includes("secret") ||
     normalized.toLowerCase().includes("private")
   );
+}
+
+async function assertRealPathInsideRoot(root: string, target: string): Promise<void> {
+  const realRoot = await realpath(root);
+
+  try {
+    const realTarget = await realpath(target);
+    if (!isPathInsideRoot(realRoot, realTarget)) {
+      throw new EngiMcpError("SYMLINK_OUTSIDE_ROOT", "Path resolves outside project root.");
+    }
+    return;
+  } catch (error) {
+    if (error instanceof EngiMcpError) {
+      throw error;
+    }
+  }
+
+  let parent = path.dirname(target);
+  while (parent !== root && parent !== path.dirname(parent)) {
+    try {
+      const stat = await lstat(parent);
+      if (stat.isSymbolicLink()) {
+        const realParent = await realpath(parent);
+        if (!isPathInsideRoot(realRoot, realParent)) {
+          throw new EngiMcpError("SYMLINK_OUTSIDE_ROOT", "Path resolves outside project root.");
+        }
+      }
+      return;
+    } catch (error) {
+      if (error instanceof EngiMcpError) {
+        throw error;
+      }
+      parent = path.dirname(parent);
+    }
+  }
 }

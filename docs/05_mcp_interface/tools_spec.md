@@ -16,6 +16,13 @@ All tools use the `engi_` prefix.
 
 The MVP should expose a small but sufficient set. Do not add a tool if the same operation can be expressed through parameters of an existing tool without losing clarity.
 
+Tool families:
+
+- `engi_doc_*` and entity tools operate on managed engineering documents: frontmatter, ID, kind, links, graph, and validation.
+- `engi_fs_*` tools operate on ordinary files and folders inside `project_root`: create, read, move, copy, delete, list, metadata, and glob discovery.
+
+Filesystem tool details are specified in `docs/05_mcp_interface/filesystem_tools_spec.md`.
+
 ## MVP Tools
 
 ### 1. `engi_project_init`
@@ -676,6 +683,38 @@ Acceptance criteria:
 
 - BOM item has ID, name, quantity, status, source, price, currency, and relationships;
 - related entities participate in graph and impact analysis.
+
+### 23. Filesystem Tools
+
+The MVP includes the project filesystem layer:
+
+```text
+engi_fs_tree
+engi_fs_list
+engi_fs_read
+engi_fs_write
+engi_fs_mkdir
+engi_fs_move
+engi_fs_copy
+engi_fs_delete
+engi_fs_exists
+engi_fs_stat
+engi_fs_glob
+```
+
+All filesystem tools are root-jailed to `project_root`, reject symlink escape, respect deny patterns, and enforce read-only mode for write-like operations.
+
+Write-like filesystem tools:
+
+```text
+engi_fs_write
+engi_fs_mkdir
+engi_fs_move
+engi_fs_copy
+engi_fs_delete
+```
+
+These tools write audit log entries. `engi_fs_write` uses atomic write. `engi_fs_delete` defaults to `mode="trash"` and moves paths into `.engimcp/trash/YYYY-MM-DD/<original-path>`.
 
 ## MVP Resources
 

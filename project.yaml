@@ -14,6 +14,7 @@ paths:
   tests: tests
   index: .engimcp/index.sqlite
   cache: .engimcp/cache
+  trash: .engimcp/trash
   audit_log: .engimcp/audit.log
 
 entity_types:
@@ -57,5 +58,10 @@ security:
     - "**/node_modules/**"
     - "**/.git/**"
     - "**/.engimcp/index.sqlite"
+    - "**/.engimcp/cache/**"
+    - "**/*secret*"
+    - "**/*private*"
+    - "**/*.pem"
+    - "**/*.key"
   follow_symlinks: false
   require_git_clean_before_bulk_write: true

@@ -58,16 +58,19 @@ The MVP should be able to:
 8. Validate the project: broken links, duplicate IDs, missing required fields.
 9. Run locally without sending data outside the machine.
 10. Work on top of Git without breaking a manual workflow.
+11. Manage ordinary project files and folders through a safe filesystem layer.
 
 ## Documentation Map
 
 - `docs/00_overview/product_vision.md` - product vision.
 - `docs/01_research/reference_projects.md` - reference projects.
 - `docs/02_requirements/technical_requirements.md` - full technical requirements.
+- `docs/02_requirements/filesystem_overlay_requirements.md` - filesystem layer requirements.
 - `docs/02_requirements/acceptance_criteria.md` - acceptance criteria.
 - `docs/03_architecture/system_architecture.md` - system architecture.
 - `docs/04_data_model/entities_and_schema.md` - data model.
 - `docs/05_mcp_interface/tools_spec.md` - MCP tools.
+- `docs/05_mcp_interface/filesystem_tools_spec.md` - filesystem MCP tools.
 - `docs/06_workflows/workflows.md` - workflows.
 - `docs/07_quality/testing_strategy.md` - testing strategy.
 - `docs/08_security/security_model.md` - security.
@@ -103,7 +106,15 @@ The current server exposes these MCP stdio tools:
 `engi_requirement_create`, `engi_decision_create`, `engi_task_create`,
 `engi_context_pack`, `engi_validate_project`, `engi_git_status`,
 `engi_project_snapshot`, `engi_git_commit`, `engi_rebuild_index`,
-`engi_test_report_create`, and `engi_bom_item_create`.
+`engi_test_report_create`, `engi_bom_item_create`, `engi_fs_tree`,
+`engi_fs_list`, `engi_fs_read`, `engi_fs_write`, `engi_fs_mkdir`,
+`engi_fs_move`, `engi_fs_copy`, `engi_fs_delete`, `engi_fs_exists`,
+`engi_fs_stat`, and `engi_fs_glob`.
+
+The split is intentional:
+
+- `engi_doc_*` tools operate on managed engineering documents: frontmatter, IDs, kinds, links, graph, and validation.
+- `engi_fs_*` tools operate on files and folders inside `project_root`: create, read, move, copy, delete, list, and inspect metadata.
 
 ## License
 

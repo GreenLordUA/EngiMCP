@@ -1,0 +1,177 @@
+import { existsSync } from "node:fs";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  fsCopy,
+  fsDelete,
+  fsExists,
+  fsGlob,
+  fsList,
+  fsMkdir,
+  fsMove,
+  fsRead,
+  fsStat,
+  fsTree,
+  fsWrite
+} from "../src/filesystem/filesystemService.js";
+
+let tempRoot: string;
+
+beforeEach(async () => {
+  tempRoot = await mkdtemp(path.join(os.tmpdir(), "engimcp-fs-"));
+  await writeProjectConfig(false);
+});
+
+afterEach(async () => {
+  await rm(tempRoot, { recursive: true, force: true });
+});
+
+describe("project filesystem layer", () => {
+  it("lists, reads, stats, checks existence, and globs allowed files", async () => {
+    await mkdir(path.join(tempRoot, "docs/notes"), { recursive: true });
+    await writeFile(path.join(tempRoot, "docs/notes/a.md"), "# Alpha\n", "utf8");
+    await writeFile(path.join(tempRoot, ".env"), "SECRET=1\n", "utf8");
+
+    const tree = await fsTree({ root: tempRoot, path: ".", max_depth: 3 });
+    const list = await fsList({ root: tempRoot, path: "docs", recursive: true });
+    const read = await fsRead({ root: tempRoot, path: "docs/notes/a.md", max_bytes: 5 });
+    const exists = await fsExists({ root: tempRoot, path: "docs/notes/a.md" });
+    const deniedExists = await fsExists({ root: tempRoot, path: ".env" });
+    const metadata = await fsStat({ root: tempRoot, path: "docs/notes/a.md" });
+    const glob = await fsGlob({ root: tempRoot, patterns: ["docs/**/*.md"] });
+
+    expect(tree.items.map((item) => item.path)).not.toContain(".env");
+    expect(list.items.map((item) => item.path)).toContain("docs/notes/a.md");
+    expect(read.content).toBe("# Alp");
+    expect(read.truncated).toBe(true);
+    expect(exists).toMatchObject({ exists: true, type: "file", allowed: true });
+    expect(deniedExists).toMatchObject({ exists: false, allowed: false });
+    expect(metadata).toMatchObject({ path: "docs/notes/a.md", type: "file", denied: false });
+    expect(glob.matches).toEqual(["docs/notes/a.md"]);
+  });
+
+  it("creates directories and writes files atomically with audit entries", async () => {
+    const mkdirResult = await fsMkdir({ root: tempRoot, path: "docs/new" });
+    const writeResult = await fsWrite({
+      root: tempRoot,
+      path: "docs/new/file.txt",
+      content: "hello\n"
+    });
+
+    await expect(
+      fsWrite({ root: tempRoot, path: "docs/new/file.txt", content: "again\n" })
+    ).rejects.toThrow("already exists");
+
+    const audit = await readFile(path.join(tempRoot, ".engimcp/audit.log"), "utf8");
+    expect(mkdirResult.audit_id).toBeTruthy();
+    expect(writeResult.audit_id).toBeTruthy();
+    expect(audit).toContain("engi_fs_mkdir");
+    expect(audit).toContain("engi_fs_write");
+  });
+
+  it("supports overwrite dry-run without changing the file", async () => {
+    await fsWrite({ root: tempRoot, path: "notes.txt", content: "before\n" });
+    const result = await fsWrite({
+      root: tempRoot,
+      path: "notes.txt",
+      content: "after\n",
+      mode: "overwrite",
+      dry_run: true
+    });
+
+    expect(result.diff_summary).toContain("dry run");
+    expect(await readFile(path.join(tempRoot, "notes.txt"), "utf8")).toBe("before\n");
+  });
+
+  it("moves, copies, and deletes through project trash", async () => {
+    await fsWrite({ root: tempRoot, path: "docs/a.txt", content: "a\n" });
+
+    const moved = await fsMove({ root: tempRoot, source: "docs/a.txt", target: "docs/b.txt" });
+    const copied = await fsCopy({ root: tempRoot, source: "docs/b.txt", target: "docs/c.txt" });
+    const deleted = await fsDelete({ root: tempRoot, path: "docs/c.txt" });
+
+    expect(moved.moved).toEqual([{ from: "docs/a.txt", to: "docs/b.txt" }]);
+    expect(copied.copied).toEqual([{ from: "docs/b.txt", to: "docs/c.txt" }]);
+    expect(deleted.deleted[0]?.trash_path).toMatch(
+      /^\.engimcp\/trash\/\d{4}-\d{2}-\d{2}\/docs\/c\.txt$/
+    );
+    expect(existsSync(path.join(tempRoot, deleted.deleted[0]?.trash_path ?? ""))).toBe(true);
+    expect(existsSync(path.join(tempRoot, "docs/c.txt"))).toBe(false);
+  });
+
+  it("rejects traversal, denied paths, symlink escape, and read-only writes", async () => {
+    const outside = await mkdtemp(path.join(os.tmpdir(), "engimcp-fs-outside-"));
+    await writeFile(path.join(outside, "outside.txt"), "outside\n", "utf8");
+    await symlink(outside, path.join(tempRoot, "outside-link"));
+    await writeProjectConfig(true);
+
+    try {
+      await expect(fsRead({ root: tempRoot, path: "../../etc/passwd" })).rejects.toThrow(
+        "inside project root"
+      );
+      await expect(fsRead({ root: tempRoot, path: ".env" })).rejects.toThrow("denied");
+      await expect(fsRead({ root: tempRoot, path: "outside-link/outside.txt" })).rejects.toThrow(
+        "outside project root"
+      );
+      await expect(fsMkdir({ root: tempRoot, path: "blocked" })).rejects.toThrow("read-only");
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks deleting managed documents with incoming links unless forced", async () => {
+    await writeManagedDocument("docs/req.md", "FR-001", "requirement", "", "# Requirement\n");
+    await writeManagedDocument(
+      "docs/design.md",
+      "DOC-DESIGN",
+      "design_doc",
+      "depends_on:\n  - FR-001",
+      "# Design\n"
+    );
+
+    await expect(fsDelete({ root: tempRoot, path: "docs/req.md" })).rejects.toThrow(
+      "incoming links"
+    );
+
+    const result = await fsDelete({ root: tempRoot, path: "docs/req.md", force: true });
+    expect(result.broken_links_created).toEqual(["docs/design.md"]);
+  });
+});
+
+async function writeProjectConfig(readOnly: boolean): Promise<void> {
+  await writeFile(
+    path.join(tempRoot, "project.yaml"),
+    `project:\n  id: fs\n  name: Filesystem\n  schema_version: 1.0.0\nmcp:\n  read_only_mode: ${readOnly}\n`,
+    "utf8"
+  );
+}
+
+async function writeManagedDocument(
+  relativePath: string,
+  id: string,
+  kind: string,
+  extraFrontmatter: string,
+  body: string
+): Promise<void> {
+  const absolutePath = path.join(tempRoot, relativePath);
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(
+    absolutePath,
+    [
+      "---",
+      `id: ${id}`,
+      `kind: ${kind}`,
+      "status: draft",
+      "version: 0.1.0",
+      extraFrontmatter.trim(),
+      "---",
+      "",
+      body
+    ]
+      .filter((part) => part.length > 0)
+      .join("\n"),
+    "utf8"
+  );
+}

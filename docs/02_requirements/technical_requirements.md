@@ -37,6 +37,7 @@ impacts:
 - project validation;
 - audit log;
 - basic Git integration.
+- safe file and folder operations inside `project_root`.
 
 ### Out of Scope
 
@@ -74,6 +75,23 @@ impacts:
 | FR-015 | The server should preserve Markdown formatting as much as practical. | SHOULD |
 | FR-016 | The server should be able to add a backlink/relationship to a document. | SHOULD |
 | FR-017 | The server must find documents by tags/frontmatter/kind/status. | MUST |
+
+### Files and Folders
+
+| ID | Requirement | Priority |
+|---|---|---:|
+| FR-018 | The server must provide a safe project filesystem layer for files and folders. | MUST |
+| FR-018.1 | The server must list directories and bounded project trees while respecting deny patterns. | MUST |
+| FR-018.2 | The server must read ordinary files with size limits and deny-pattern checks. | MUST |
+| FR-018.3 | The server must create and overwrite ordinary files inside `project_root`; overwrite must be explicit. | MUST |
+| FR-018.4 | The server must create directories inside `project_root`. | MUST |
+| FR-018.5 | The server must move and rename files or folders inside `project_root`. | MUST |
+| FR-018.6 | The server must copy files or folders inside `project_root`. | MUST |
+| FR-018.7 | The server must delete by moving paths to project trash by default. | MUST |
+| FR-018.8 | Filesystem tools must reject `../` traversal, absolute escape paths, symlink escape, and denied paths. | MUST |
+| FR-018.9 | Filesystem write-like tools must enforce read-only mode, support dry-run where destructive, and write audit logs. | MUST |
+| FR-018.10 | Deleting or moving managed Markdown documents must check incoming/outgoing links and invalidate or refresh derived indexes. | MUST |
+| FR-018.11 | `engi_doc_*` tools are canonical for managed engineering documents; `engi_fs_*` tools are canonical for files and folders. | MUST |
 
 ### Requirements
 
@@ -182,6 +200,7 @@ Minimum:
 | SEC-003 | Secrets such as `.env`, SSH keys, and `.git` must be excluded by default. | MUST |
 | SEC-004 | Before a write operation, dangerous changes should provide a dry run or diff. | SHOULD |
 | SEC-005 | Bulk-write operations should require a clean Git working tree or explicit override confirmation. | SHOULD |
+| SEC-006 | Filesystem delete must use project trash by default and must not permanently delete in the MVP. | MUST |
 
 ## 6. Versioning
 

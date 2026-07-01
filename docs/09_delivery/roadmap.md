@@ -50,6 +50,33 @@ Done when:
 - reading by ID works;
 - duplicate IDs and broken frontmatter are detected.
 
+## Milestone 1.5 - Project Filesystem Layer
+
+Status: complete.
+
+Goal: provide safe project file and folder operations without exposing raw shell access or unrestricted filesystem access.
+
+Tasks:
+
+- shared safe path resolver for filesystem tools;
+- deny-pattern enforcement for `.git`, `.env`, cache, secrets, keys, and dependencies;
+- read-only enforcement for write-like filesystem tools;
+- `engi_fs_tree`, `engi_fs_list`, `engi_fs_stat`, and `engi_fs_exists`;
+- `engi_fs_read` with size limits;
+- `engi_fs_mkdir` and `engi_fs_write` with audit log and atomic write;
+- `engi_fs_move` and `engi_fs_copy`;
+- `engi_fs_delete` with project trash;
+- managed document link checks before delete;
+- tests for traversal, symlink escape, denied paths, read-only mode, audit log, and trash delete.
+
+Done when:
+
+- an agent can create folders and ordinary files safely;
+- an agent can move, copy, and inspect project paths safely;
+- delete moves paths to `.engimcp/trash` by default;
+- managed document deletion checks incoming links;
+- all filesystem security tests pass.
+
 ## Milestone 2 - Safe Writes
 
 Status: complete.
@@ -169,6 +196,7 @@ Tasks:
 
 ```text
 1. Project/read/index/validate
+1.5. Project filesystem layer
 2. Safe writes
 3. Graph/impact
 4. Requirements/EDR/tasks
